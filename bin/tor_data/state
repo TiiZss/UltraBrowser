@@ -1,0 +1,41 @@
+# Tor state file last generated on 2026-01-16 21:22:35 local time
+# Other times below are in UTC
+# You *do not* need to edit this file.
+
+CircuitBuildTimeBin 145 1
+CircuitBuildTimeBin 175 1
+CircuitBuildTimeBin 205 2
+CircuitBuildTimeBin 215 1
+CircuitBuildTimeBin 255 1
+CircuitBuildTimeBin 275 1
+CircuitBuildTimeBin 345 1
+CircuitBuildTimeBin 355 1
+CircuitBuildTimeBin 375 1
+CircuitBuildTimeBin 385 1
+CircuitBuildTimeBin 455 1
+CircuitBuildTimeBin 475 1
+CircuitBuildTimeBin 565 1
+Dormant 0
+Guard in=default rsa_id=3E89118A4851A3EE47E8BA6A7CBD22EBEF83A893 nickname=RelayUli sampled_on=2026-01-08T21:47:05 sampled_idx=0 sampled_by=0.4.8.21 listed=1 confirmed_on=2026-01-14T13:36:04 confirmed_idx=1 pb_circ_attempts=6.000000 pb_circ_successes=6.000000 pb_successful_circuits_closed=6.000000
+Guard in=default rsa_id=DC7C3E8835F3A5C141441CA80ACAB8F4C654F7C0 nickname=plies sampled_on=2026-01-11T13:34:28 sampled_idx=1 sampled_by=0.4.8.21 listed=1 confirmed_on=2026-01-15T12:13:31 confirmed_idx=0 pb_circ_attempts=1.000000 pb_circ_successes=1.000000 pb_successful_circuits_closed=1.000000
+Guard in=default rsa_id=964B4E8A75263A69769541F2764563DABDD995D2 nickname=MHcXthX9Eb34WYyEN7H sampled_on=2026-01-07T01:47:57 sampled_idx=2 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=B25E02013A30693556480274240B8B392AB04179 nickname=7d8d64935ed96451d1f sampled_on=2026-01-07T06:36:16 sampled_idx=3 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=1C34E8823F25C0DB7D6F52354F7FACD2B11AC1AA nickname=ColonThree sampled_on=2026-01-06T13:32:59 sampled_idx=4 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=5440670796CA7FCBF33C43EA681ED8142F3E2424 nickname=OvIS7kVfqXSo7smuN7x sampled_on=2026-01-08T00:44:29 sampled_idx=5 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=778DCB9DB6CDD5FF2F1A85571308B492D6DFF962 nickname=TorHet sampled_on=2026-01-06T23:10:44 sampled_idx=6 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=1734430C503EE26EC1A3B9EB7C29BF4AC64B922B nickname=torfinity sampled_on=2026-01-09T07:42:50 sampled_idx=7 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=F69F1CB011A7837AB826FA72FC9C49D292CDD6D0 nickname=relay1 sampled_on=2026-01-09T01:52:57 sampled_idx=8 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=05C32C5EE14454E0C4CD81DAE0F3DC32F729DA4B nickname=TORtuga sampled_on=2026-01-10T05:05:57 sampled_idx=9 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=0D3B8A69152E70DC153E035404ECD045DB4D5FE1 nickname=bigdaddykane sampled_on=2026-01-06T14:28:49 sampled_idx=10 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=F1CD870D7A8FA364E459ABA70B1737D40B0B4BB3 nickname=csUniHB sampled_on=2026-01-09T23:20:06 sampled_idx=11 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=7DD42C04AACF63D0BDC776088279118312816239 nickname=Quetzalcoatl sampled_on=2026-01-15T13:11:20 sampled_idx=12 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=47D19F85216F1239529521E0265085394DF201B9 nickname=updater sampled_on=2026-01-09T14:48:55 sampled_idx=13 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=362FA049325802519090C86BC43FC3C6ACBF5613 nickname=bl4ckrid3r sampled_on=2026-01-04T20:43:24 sampled_idx=14 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=5C60154E9671B1B7139F847AE6FBA41DAA0A8ABB nickname=DFRI102 sampled_on=2026-01-15T08:07:58 sampled_idx=15 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=5E0988E3A7463183FFF74088E6D026A58FF6246A nickname=Aleff sampled_on=2026-01-09T11:48:15 sampled_idx=16 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=BF50E09EED25B82861CF95E1AAA42DCFEF53E5D1 nickname=LupusreginaBeta sampled_on=2026-01-13T14:13:46 sampled_idx=17 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=DFD6E9BF7F2194C13F95D07EE9CCFAB099372969 nickname=BrightWowRelay sampled_on=2026-01-07T05:24:43 sampled_idx=18 sampled_by=0.4.8.21 listed=1
+Guard in=default rsa_id=BA740EBB1A4AA88D6C09BB437C7C3CE35AC704CF nickname=zephyr sampled_on=2026-01-12T13:32:08 sampled_idx=19 sampled_by=0.4.8.21 listed=1
+LastWritten 2026-01-16 20:22:35
+TorVersion Tor 0.4.8.21 (git-add2400e16d88534)
+TotalBuildTimes 14

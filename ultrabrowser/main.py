@@ -30,7 +30,7 @@ def main():
     set_logger(logger)
     
     logger.info("=" * 60)
-    logger.info("Iniciando UltraBrowser")
+    logger.info("Iniciando UltraBrowser by TiiZss")
     logger.info("=" * 60)
     
     # Establecer configuración global

@@ -1,6 +1,7 @@
 # Script PowerShell para ejecutar UltraBrowser en Windows
 
 $ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 
 if (Get-Command "uv" -ErrorAction SilentlyContinue) {
     Write-Host "[INFO] uv detectado. Ejecutando con 'uv run'..." -ForegroundColor Cyan

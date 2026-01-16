@@ -5,7 +5,7 @@ Motor del navegador: Configuración de QWebEngineView, perfiles y gestión de pe
 from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLineEdit, 
-    QPushButton, QToolBar, QStatusBar, QProgressBar
+    QPushButton, QToolBar, QStatusBar, QProgressBar, QApplication
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QAction, QKeySequence, QIcon
@@ -13,7 +13,7 @@ import os
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import (
     QWebEngineSettings, QWebEnginePermission, 
-    QWebEngineProfile, QWebEnginePage
+    QWebEngineProfile, QWebEnginePage, QWebEngineFullScreenRequest
 )
 from PyQt6.QtNetwork import QNetworkProxy
 from .tor_logic import TorManager
@@ -77,6 +77,9 @@ class BrowserEngine(QWebEngineView):
         # Conectar señal featurePermissionRequested
         self.page.featurePermissionRequested.connect(self.handle_permission_request)
         
+        # Conectar señal fullScreenRequested
+        self.page.fullScreenRequested.connect(self.handle_fullscreen_request)
+        
         # Conectar señal para forzar HTTPS (si está habilitado)
         if config.force_https:
             self.page.urlChanged.connect(self.force_https_redirect)
@@ -93,6 +96,8 @@ class BrowserEngine(QWebEngineView):
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, config.enable_local_storage)
         # Habilitar solo contenido seguro
         settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, not config.block_insecure_content)
+        # Habilitar soporte para pantalla completa
+        settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         
         # Protección contra loops infinitos en redirecciones HTTPS
         self._https_redirect_count = 0
@@ -132,10 +137,26 @@ class BrowserEngine(QWebEngineView):
             else:
                 self.page.setFeaturePermission(security_origin, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
                 logger.debug(f"Cámara denegada para: {origin_str}")
+                self.page.setFeaturePermission(security_origin, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
+                logger.debug(f"Cámara denegada para: {origin_str}")
+
+        elif feature == QWebEnginePage.Feature.FullScreen:
+            # Solicitud de pantalla completa (permitir siempre)
+            self.page.setFeaturePermission(security_origin, feature, QWebEnginePage.PermissionPolicy.PermissionGrantedByUser)
+            logger.debug(f"Pantalla completa concedida para: {origin_str}")
+            
         else:
             # Para otros permisos, denegar por defecto (principio de menor privilegio)
             self.page.setFeaturePermission(security_origin, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
             logger.debug(f"Permiso {feature} denegado para: {origin_str}")
+
+    def handle_fullscreen_request(self, request: QWebEngineFullScreenRequest) -> None:
+        """
+        Maneja las solicitudes de pantalla completa.
+        Acepta automáticamente la solicitud para permitir que el elemento (ej. video) ocupe la pantalla.
+        """
+        request.accept()
+        logger.debug(f"Solicitud de pantalla completa aceptada para: {request.origin().toString()}")
     
     def force_https_redirect(self, url: QUrl) -> None:
         """
@@ -208,20 +229,7 @@ class BrowserEngine(QWebEngineView):
             self.reload()
             logger.debug("Permisos de micrófono revocados (página recargada)")
     
-    def set_tor_proxy(self, proxy: Optional[QNetworkProxy]) -> None:
-        """
-        Configura el proxy Tor para el perfil WebEngine
-        
-        Args:
-            proxy: Proxy a configurar, o None para restaurar el proxy por defecto
-        """
-        if proxy:
-            self.profile.setProxy(proxy)
-            logger.debug("Proxy Tor configurado en el perfil WebEngine")
-        else:
-            # Restaurar proxy por defecto
-            self.profile.setProxy(QNetworkProxy())
-            logger.debug("Proxy restaurado a valores por defecto")
+
     
     def clear_all_data(self) -> None:
         """Limpia todos los datos: caché, cookies, permisos, etc."""
@@ -324,9 +332,10 @@ class BrowserWindow(QMainWindow):
         browser.urlChanged.connect(lambda u: self.update_url_bar(u, browser))
         browser.titleChanged.connect(lambda t: self.update_tab_title(t, browser))
         
-        # Si Tor está activo, configurar proxy
+        # Si Tor está activo, configurar proxy (ya es global, no es necesario por pestaña)
         if self.tor_toggle.isChecked():
-            browser.set_tor_proxy(self.tor_manager.get_proxy())
+             # El proxy global ya está configurado
+             pass
 
         index = self.tabs.addTab(browser, label)
         self.tabs.setCurrentIndex(index)
@@ -425,6 +434,16 @@ class BrowserWindow(QMainWindow):
         self.tor_toggle.setChecked(False)
         self.tor_toggle.clicked.connect(self.toggle_tor)
         self.tor_toggle.setToolTip("Activar/desactivar navegación a través de Tor")
+        self.tor_toggle.setStyleSheet("""
+            QPushButton:checked {
+                background-color: #4caf50;
+                color: white;
+            }
+            QPushButton:!checked {
+                background-color: #757575;
+                color: white;
+            }
+        """)
         toolbar.addWidget(self.tor_toggle)
         
         # Botón para nueva identidad de Tor
@@ -610,29 +629,126 @@ class BrowserWindow(QMainWindow):
     def toggle_tor(self, checked: bool) -> None:
         """Maneja el toggle de Tor (Global)"""
         if checked:
+            # 0. Estado visual: Conectando (Naranja)
+            self.tor_toggle.setStyleSheet("""
+                QPushButton:checked { background-color: #d35400; color: white; }
+                QPushButton:!checked { background-color: #757575; color: white; }
+            """)
+            self.tor_toggle.setText("🔒 Tor: ...")
+            
+            # 1. Mostrar página de "Conectando..."
+            loading_html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; background-color: #2b2b2b; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                    .container { text-align: center; }
+                    .loader { border: 5px solid #333; border-top: 5px solid #d35400; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    h2 { color: #d35400; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="loader"></div>
+                    <h2>Conectando a Tor...</h2>
+                    <p>Estableciendo circuito seguro. Por favor, espere unos segundos.</p>
+                </div>
+            </body>
+            </html>
+            """
+            if self.current_browser():
+                self.current_browser().setHtml(loading_html)
+            
+            # Forzar actualización de UI para que se vea el mensaje y el botón naranja
+            for _ in range(10):
+                QApplication.processEvents()
+                import time
+                time.sleep(0.05)
+            
+            # 2. Intentar conectar
             if self.tor_manager.enable_tor():
-                proxy = self.tor_manager.get_proxy()
-                # Aplicar a todas las pestañas existentes
-                for i in range(self.tabs.count()):
-                    browser = self.tabs.widget(i)
-                    if isinstance(browser, BrowserEngine):
-                        browser.set_tor_proxy(proxy)
-                        
+                # 3. Mostrar página de éxito PRIMERO
+                success_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: 'Segoe UI', sans-serif; background-color: #2b2b2b; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .container { text-align: center; }
+                        .icon { font-size: 64px; color: #2ecc71; margin-bottom: 20px; }
+                        h2 { color: #2ecc71; }
+                        .btn { background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; text-decoration: none; cursor: pointer; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="icon">🔒</div>
+                        <h2>Conexión Segura Establecida</h2>
+                        <p>Ahora navegas a través de la red Tor.</p>
+                        <p>Tu IP es anónima.</p>
+                        <a href="https://check.torproject.org" class="btn">Verificar mi IP</a>
+                    </div>
+                </body>
+                </html>
+                """
+                if self.current_browser():
+                    self.current_browser().setHtml(success_html)
+                
+                # Dar tiempo a renderizar HTML antes de poner botón verde
+                for _ in range(5):
+                    QApplication.processEvents()
+                    time.sleep(0.05)
+
+                # 4. Estado visual: Conectado (Verde)
+                self.tor_toggle.setStyleSheet("""
+                    QPushButton:checked { background-color: #4caf50; color: white; }
+                    QPushButton:!checked { background-color: #757575; color: white; }
+                """)
                 self.tor_toggle.setText("🔒 Tor: ON")
                 self.status_bar.showMessage("Tor activado para TODAS las pestañas", 3000)
+                    
             else:
                 self.tor_toggle.setChecked(False)
-                self.status_bar.showMessage("Error: Tor no está disponible.", 5000)
+                # Restaurar estilo (aunque al estar unchecked se verá gris)
+                self.tor_toggle.setStyleSheet("""
+                    QPushButton:checked { background-color: #4caf50; color: white; }
+                    QPushButton:!checked { background-color: #757575; color: white; }
+                """)
+                self.status_bar.showMessage("Error: No se pudo iniciar Tor.", 5000)
+                
+                # 4. Mostrar página de error
+                error_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: 'Segoe UI', sans-serif; background-color: #2b2b2b; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                        .container { text-align: center; max-width: 600px; padding: 20px; }
+                        .icon { font-size: 64px; color: #e74c3c; margin-bottom: 20px; }
+                        h2 { color: #e74c3c; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="icon">❌</div>
+                        <h2>Error al conectar con Tor</h2>
+                        <p>No se pudo iniciar el proceso Tor.</p>
+                    </div>
+                </body>
+                </html>
+                """
+                if self.current_browser():
+                     self.current_browser().setHtml(error_html)
+                     
+                logger.error("Error al habilitar Tor. Si no tienes Tor instalado, descárgalo de https://www.torproject.org/")
         else:
             if self.tor_manager.disable_tor():
-                # Quitar proxy de todas las pestañas
-                for i in range(self.tabs.count()):
-                    browser = self.tabs.widget(i)
-                    if isinstance(browser, BrowserEngine):
-                        browser.set_tor_proxy(None)
-                        
                 self.tor_toggle.setText("🔒 Tor: OFF")
                 self.status_bar.showMessage("Tor desactivado", 3000)
+                if self.current_browser():
+                    self.current_browser().reload()
     
     def new_tor_identity(self) -> None:
         """Solicita una nueva identidad de Tor"""

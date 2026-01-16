@@ -6,8 +6,13 @@ from typing import Optional
 from PyQt6.QtNetwork import QNetworkProxy
 from stem.control import Controller
 from stem import Signal
+import stem.process
 import socket
 import time
+from pathlib import Path
+import os
+import platform
+import sys
 
 from .exceptions import (
     TorNotRunningError,
@@ -34,6 +39,7 @@ class TorManager:
         """
         self.controller: Optional[Controller] = None
         self.tor_enabled = False
+        self._tor_process = None
         
         # Obtener configuración
         config = get_config()
@@ -127,21 +133,109 @@ class TorManager:
         Returns:
             True si Tor se habilitó correctamente, False en caso contrario
         """
-        if not self.verify_tor_connection():
-            logger.warning("Tor no está disponible. Por favor, inicia el servicio Tor.")
-            return False
-        
         try:
-            # Configurar proxy global (para otras conexiones de Qt)
-            QNetworkProxy.setApplicationProxy(self.proxy)
-            self.tor_enabled = True
-            logger.info(f"Tor habilitado - Proxy SOCKS5 configurado en {self.tor_config.host}:{self.tor_config.socks_port}")
-            return True
+             # Si Tor no está corriendo, intentar iniciarlo
+             if not self.is_tor_running():
+                 logger.info("Tor no está corriendo. Intentando iniciar proceso...")
+                 if not self.launch_tor():
+                      logger.error("No se pudo iniciar el proceso Tor")
+                      return False
+
+             if not self.verify_tor_connection():
+                 logger.warning("Tor no está disponible incluso después de intentar iniciarlo.")
+                 return False
+
+             # Configurar proxy global (para otras conexiones de Qt)
+             QNetworkProxy.setApplicationProxy(self.proxy)
+             self.tor_enabled = True
+             logger.info(f"Tor habilitado - Proxy SOCKS5 configurado en {self.tor_config.host}:{self.tor_config.socks_port}")
+             return True
         except Exception as e:
-            logger.error(f"Error al habilitar Tor: {e}")
-            if self.debug_mode:
-                raise TorProxyError(f"Error al configurar proxy: {e}") from e
-            return False
+             logger.error(f"Error al habilitar Tor: {e}")
+             if self.debug_mode:
+                 raise TorProxyError(f"Error al configurar proxy: {e}") from e
+             return False
+
+    def launch_tor(self) -> bool:
+        """
+        Intenta iniciar el proceso de Tor
+        Returns:
+            True si se inició correctamente, False en caso contrario
+        """
+        try:
+            logger.info("Iniciando proceso Tor...")
+            
+            # Configuración para Tor
+            tor_cmd = 'tor' # Default to PATH
+            
+            # 1. Check user config first
+            if self.tor_config.tor_binary_path:
+                path = Path(self.tor_config.tor_binary_path)
+                if not path.is_absolute():
+                     path = Path.cwd() / path
+                
+                if path.exists():
+                     tor_cmd = str(path.absolute())
+                     logger.info(f"Usando binario Tor configurado: {tor_cmd}")
+                else:
+                     logger.warning(f"Binario configurado no encontrado en {path}. Intentando autodetectar.")
+            
+            # 2. Auto-detect bundled binary if not configured or not found
+            if tor_cmd == 'tor':
+                system = platform.system()
+                base_path = Path.cwd() / 'bin'
+                bundled_path = None
+                
+                if system == 'Windows':
+                    bundled_path = base_path / 'windows/Tor/tor.exe'
+                elif system == 'Linux':
+                    bundled_path = base_path / 'linux/Tor/tor'
+                elif system == 'Darwin': # MacOS
+                    bundled_path = base_path / 'macos/Tor/tor'
+                
+                if bundled_path and bundled_path.exists():
+                    tor_cmd = str(bundled_path.absolute())
+                    # Ensure DataDirectory is also platform specific if needed, but we use bin/Tor/data
+                    # We might want to move data relative to the binary too
+                    logger.info(f"Usando binario Tor embebido ({system}): {tor_cmd}")
+
+            # 3. Configure Data Directory relative to binary or common
+            data_dir = Path.cwd() / 'bin/tor_data'
+            data_dir.mkdir(parents=True, exist_ok=True)
+            
+            tor_config = {
+                'SocksPort': str(self.tor_config.socks_port),
+                'ControlPort': str(self.tor_config.control_port),
+                'DataDirectory': str(data_dir),
+            }
+            
+            launch_kwargs = {
+                'config': tor_config,
+                'init_msg_handler': lambda line: logger.debug(f"Tor init: {line}"),
+                'take_ownership': False,
+                'completion_percent': 100,
+                'tor_cmd': tor_cmd
+            }
+
+            self._tor_process = stem.process.launch_tor_with_config(**launch_kwargs)
+            logger.info("Proceso Tor iniciado correctamente")
+            return True
+            
+        except OSError as e:
+             logger.error(f"Error al iniciar Tor: {e}")
+             logger.error("Asegúrate de que Tor esté instalado y en el PATH o configurado en config.json")
+             return False
+        except Exception as e:
+             logger.error(f"Error inesperado al iniciar Tor: {e}")
+             return False
+             
+    def __del__(self):
+        """Limpieza al destruir el objeto"""
+        if self._tor_process:
+            try:
+                self._tor_process.kill()
+            except:
+                pass
     
     def disable_tor(self) -> bool:
         """

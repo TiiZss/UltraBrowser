@@ -11,7 +11,7 @@
 
 ## Descripción
 
-UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la privacidad extrema. Integra la red Tor de forma nativa y ofrece controles de hardware granulares para bloquear físicamente (vía software) el acceso a la cámara y el micrófono.
+UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la privacidad extrema. Integra la red Tor de forma nativa (**Portable**, sin instalaciones extra) y ofrece controles de hardware granulares para bloquear físicamente (vía software) el acceso a la cámara y el micrófono.
 
 ## Características Principales
 
@@ -34,7 +34,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 
 ## Instalación y Ejecución
 
-Es necesario tener instalado [Python 3.12+](https://www.python.org/) y el servicio [Tor](https://www.torproject.org/).
+Es necesario tener instalado [Python 3.12+](https://www.python.org/). **Tor ya viene incluido** en el proyecto (Portable).
 
 ### Windows
 ```cmd
@@ -55,6 +55,7 @@ Los scripts de ejecución se encargarán automáticamente de crear el entorno vi
 ## Estructura del Proyecto
 
 *   `ultrabrowser/`: Código fuente del paquete.
+*   `bin/`: Binarios portables de Tor (Windows/Linux/Mac).
 *   `docs/`: Documentación y auditorías de seguridad.
 *   `run.*`: Scripts de lanzamiento automático.
 

@@ -20,6 +20,7 @@ class TorConfig:
     host: str = "127.0.0.1"
     timeout: int = 10
     retry_attempts: int = 3
+    tor_binary_path: Optional[str] = None
 
 
 @dataclass

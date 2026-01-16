@@ -4,7 +4,8 @@
     "control_port": 9051,
     "host": "127.0.0.1",
     "timeout": 10,
-    "retry_attempts": 3
+    "retry_attempts": 3,
+    "tor_binary_path": null
   },
   "default_homepage": "https://www.duckduckgo.com",
   "force_https": true,
