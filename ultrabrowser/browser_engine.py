@@ -239,7 +239,7 @@ class BrowserEngine(QWebEngineView):
 
 
 class BrowserWindow(QMainWindow):
-    """Ventana principal del navegador con barra de herramientas y toggles"""
+    """Ventana principal del navegador con soporte para pestañas"""
     
     def __init__(self):
         """Inicializa la ventana principal del navegador"""
@@ -247,6 +247,7 @@ class BrowserWindow(QMainWindow):
         
         # Obtener configuración
         config = get_config()
+        self.config = config  # Guardar referencia
         
         self.setWindowTitle("UltraBrowser - Navegador Privado y seguro by TiiZss - https://www.tiizss.com")
         self.setGeometry(100, 100, config.window_width, config.window_height)
@@ -259,17 +260,24 @@ class BrowserWindow(QMainWindow):
         else:
             logger.warning(f"No se encontró el icono en: {icon_path}")
         
-        # Crear widget central
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # Crear widget central con pestañas
+        from PyQt6.QtWidgets import QTabWidget, QToolButton
+        self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.setTabsClosable(True)
+        self.tabs.tabCloseRequested.connect(self.close_tab)
+        self.tabs.currentChanged.connect(self.on_tab_changed)
         
-        # Crear motor del navegador
-        self.browser = BrowserEngine(debug_mode=config.debug_mode)
-        layout.addWidget(self.browser)
+        # Botón "+" en la esquina de las pestañas
+        new_tab_button = QToolButton()
+        new_tab_button.setText("+")
+        new_tab_button.setToolTip("Nueva pestaña")
+        new_tab_button.clicked.connect(lambda: self.add_new_tab())
+        self.tabs.setCornerWidget(new_tab_button, Qt.Corner.TopLeftCorner)
         
-        # Crear gestor de Tor
+        self.setCentralWidget(self.tabs)
+        
+        # Crear gestor de Tor (compartido)
         self.tor_manager = TorManager(debug_mode=config.debug_mode)
         
         # Crear barra de herramientas
@@ -280,23 +288,83 @@ class BrowserWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Listo")
         
-        # Barra de progreso para carga de páginas
+        # Barra de progreso para carga de páginas (compartida en UI, actualizada por tab activo)
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
         
-        # Conectar señales del navegador
-        self.browser.loadProgress.connect(self.update_progress)
-        self.browser.loadFinished.connect(self.on_load_finished)
-        
         # Configurar atajos de teclado
         self.setup_shortcuts()
         
-        # Cargar página inicial
-        self.browser.setUrl(QUrl(config.default_homepage))
+        # Cargar primera pestaña
+        self.add_new_tab(QUrl(config.default_homepage), "Inicio")
         
-        logger.info("BrowserWindow inicializada")
+        logger.info("BrowserWindow inicializada con soporte de pestañas")
     
+    def current_browser(self) -> Optional[BrowserEngine]:
+        """Retorna el motor del navegador de la pestaña actual"""
+        return self.tabs.currentWidget()
+
+    def add_new_tab(self, url: QUrl = None, label: str = "Nueva Pestaña") -> None:
+        """Crea y añade una nueva pestaña"""
+        if url is None:
+            url = QUrl(self.config.default_homepage)
+            
+        browser = BrowserEngine(debug_mode=self.config.debug_mode)
+        browser.setUrl(url)
+        
+        # Aplicar estado global de toggles a la nueva pestaña
+        # Nota: Leemos el estado del toggle, no del browser actual (que podría no existir si es el primero)
+        browser.set_camera_enabled(self.camera_toggle.isChecked())
+        browser.set_microphone_enabled(self.microphone_toggle.isChecked())
+        
+        # Conectar señales
+        browser.loadProgress.connect(lambda p: self.update_progress(p, browser))
+        browser.loadFinished.connect(lambda s: self.on_load_finished(s, browser))
+        browser.urlChanged.connect(lambda u: self.update_url_bar(u, browser))
+        browser.titleChanged.connect(lambda t: self.update_tab_title(t, browser))
+        
+        # Si Tor está activo, configurar proxy
+        if self.tor_toggle.isChecked():
+            browser.set_tor_proxy(self.tor_manager.get_proxy())
+
+        index = self.tabs.addTab(browser, label)
+        self.tabs.setCurrentIndex(index)
+        
+        logger.info(f"Nueva pestaña añadida (Índice: {index})")
+
+    def close_tab(self, index: int) -> None:
+        """Cierra la pestaña en el índice especificado"""
+        if self.tabs.count() < 2:
+            return # No cerrar la última pestaña (o se podría cerrar la app)
+
+        widget = self.tabs.widget(index)
+        if widget:
+            widget.deleteLater()
+            
+        self.tabs.removeTab(index)
+        logger.info(f"Pestaña cerrada (Índice: {index})")
+
+    def on_tab_changed(self, index: int) -> None:
+        """Maneja el cambio de pestaña activa"""
+        browser = self.tabs.widget(index)
+        if browser:
+            self.update_url_bar(browser.url(), browser)
+            self.update_title(browser.title())
+            # Resetear iconos de estado si fuera necesario, pero mantenemos estado global
+
+    def update_tab_title(self, title: str, browser: BrowserEngine) -> None:
+        """Actualiza el título de la pestaña específica"""
+        index = self.tabs.indexOf(browser)
+        if index != -1:
+            # Truncar título si es muy largo
+            short_title = (title[:20] + '..') if len(title) > 20 else title
+            self.tabs.setTabText(index, short_title)
+            self.tabs.setTabToolTip(index, title)
+            
+            if browser == self.current_browser():
+                self.update_title(title)
+
     def create_toolbar(self) -> None:
         """Crea la barra de herramientas con toggles y controles"""
         toolbar = QToolBar("Barra Principal")
@@ -306,23 +374,32 @@ class BrowserWindow(QMainWindow):
         # Botón Atrás
         back_action = QAction("◀ Atrás", self)
         back_action.setShortcut(QKeySequence("Alt+Left"))
-        back_action.triggered.connect(self.browser.back)
+        back_action.triggered.connect(lambda: self.current_browser() and self.current_browser().back())
         back_action.setToolTip("Ir atrás (Alt+←)")
         toolbar.addAction(back_action)
         
         # Botón Adelante
         forward_action = QAction("Adelante ▶", self)
         forward_action.setShortcut(QKeySequence("Alt+Right"))
-        forward_action.triggered.connect(self.browser.forward)
+        forward_action.triggered.connect(lambda: self.current_browser() and self.current_browser().forward())
         forward_action.setToolTip("Ir adelante (Alt+→)")
         toolbar.addAction(forward_action)
         
         # Botón Recargar
         reload_action = QAction("🔄 Recargar", self)
         reload_action.setShortcut(QKeySequence("F5"))
-        reload_action.triggered.connect(self.browser.reload)
+        reload_action.triggered.connect(lambda: self.current_browser() and self.current_browser().reload())
         reload_action.setToolTip("Recargar página (F5)")
         toolbar.addAction(reload_action)
+
+        toolbar.addSeparator()
+
+        # Botón Nueva Pestaña
+        new_tab_action = QAction("➕", self)
+        new_tab_action.setShortcut(QKeySequence("Ctrl+T"))
+        new_tab_action.triggered.connect(lambda: self.add_new_tab())
+        new_tab_action.setToolTip("Nueva Pestaña (Ctrl+T)")
+        toolbar.addAction(new_tab_action)
         
         toolbar.addSeparator()
         
@@ -402,10 +479,6 @@ class BrowserWindow(QMainWindow):
         clear_action.triggered.connect(self.clear_all)
         clear_action.setToolTip("Limpiar todos los datos (Ctrl+Shift+Del)")
         toolbar.addAction(clear_action)
-        
-        # Conectar señal de cambio de URL para actualizar la barra de direcciones
-        self.browser.urlChanged.connect(self.update_url_bar)
-        self.browser.titleChanged.connect(self.update_title)
     
     def setup_shortcuts(self) -> None:
         """Configura los atajos de teclado"""
@@ -414,43 +487,38 @@ class BrowserWindow(QMainWindow):
         focus_url_action.setShortcut(QKeySequence("Ctrl+L"))
         focus_url_action.triggered.connect(lambda: self.url_bar.setFocus())
         self.addAction(focus_url_action)
-    
-    def update_progress(self, progress: int) -> None:
-        """
-        Actualiza la barra de progreso durante la carga
         
-        Args:
-            progress: Porcentaje de carga (0-100)
-        """
+        # Ctrl+W para cerrar pestaña
+        close_tab_action = QAction(self)
+        close_tab_action.setShortcut(QKeySequence("Ctrl+W"))
+        close_tab_action.triggered.connect(lambda: self.close_tab(self.tabs.currentIndex()))
+        self.addAction(close_tab_action)
+    
+    def update_progress(self, progress: int, browser: BrowserEngine) -> None:
+        """Actualiza la barra de progreso si es la pestaña activa"""
+        if browser != self.current_browser():
+            return
+            
         if progress < 100:
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(progress)
         else:
             self.progress_bar.setVisible(False)
     
-    def on_load_finished(self, success: bool) -> None:
-        """
-        Se llama cuando termina de cargar una página
-        
-        Args:
-            success: True si la carga fue exitosa, False en caso contrario
-        """
+    def on_load_finished(self, success: bool, browser: BrowserEngine) -> None:
+        """Se llama cuando termina de cargar una página"""
+        if browser != self.current_browser():
+            return
+
         if not success:
             self.status_bar.showMessage("Error al cargar la página", 5000)
             logger.warning("Error al cargar la página")
         else:
             self.status_bar.showMessage("Página cargada", 2000)
     
+    # ... (is_ip_address y validate_url se mantienen igual que pertenecen a la clase pero son utilitarios)
     def is_ip_address(self, text: str) -> bool:
-        """
-        Verifica si un texto es una dirección IP válida
-        
-        Args:
-            text: Texto a verificar
-            
-        Returns:
-            True si es una IP válida, False en caso contrario
-        """
+        """Verifica si un texto es una dirección IP válida"""
         ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
         if re.match(ip_pattern, text):
             parts = text.split('.')
@@ -458,41 +526,28 @@ class BrowserWindow(QMainWindow):
         return False
     
     def validate_url(self, url_string: str) -> Optional[QUrl]:
-        """
-        Valida y normaliza una URL o convierte búsqueda a URL
-        
-        Args:
-            url_string: URL o término de búsqueda
-            
-        Returns:
-            QUrl válido o None si la URL es inválida
-        """
+        """Valida y normaliza una URL o convierte búsqueda a URL"""
         if not url_string or not url_string.strip():
             return None
         
         url_string = url_string.strip()
         
-        # Si parece una búsqueda (no tiene punto, no es IP, no tiene esquema)
         if (not any(c in url_string for c in ['.', '/', ':']) and 
             not self.is_ip_address(url_string) and
             not url_string.startswith(('http://', 'https://', 'file://'))):
-            # Convertir a búsqueda en DuckDuckGo
             search_url = f"https://duckduckgo.com/?q={url_string.replace(' ', '+')}"
             logger.debug(f"Búsqueda convertida a URL: {search_url}")
             return QUrl(search_url)
         
-        # Si no tiene esquema, agregar https://
         if not url_string.startswith(('http://', 'https://', 'file://')):
             url_string = 'https://' + url_string
         
         url = QUrl(url_string)
         
-        # Validar que la URL sea válida
         if not url.isValid() or url.isEmpty():
             logger.warning(f"URL inválida: {url_string}")
             return None
         
-        # Bloquear URLs peligrosas (javascript:, data:, etc.)
         scheme = url.scheme().lower()
         if scheme in ['javascript', 'data', 'vbscript']:
             logger.warning(f"URL bloqueada por esquema peligroso: {scheme}")
@@ -501,107 +556,106 @@ class BrowserWindow(QMainWindow):
         return url
     
     def navigate_to_url(self) -> None:
-        """Navega a la URL introducida en la barra de direcciones con validación"""
+        """Navega a la URL introducida en la barra de direcciones"""
         url_text = self.url_bar.text()
         url = self.validate_url(url_text)
+        browser = self.current_browser()
         
-        if url:
-            self.browser.setUrl(url)
+        if url and browser:
+            browser.setUrl(url)
             logger.info(f"Navegando a: {url.toString()}")
         else:
             self.status_bar.showMessage("URL inválida o no permitida", 3000)
             logger.warning(f"Intento de navegar a URL inválida: {url_text}")
     
-    def update_url_bar(self, url: QUrl) -> None:
-        """
-        Actualiza la barra de direcciones cuando cambia la URL
-        
-        Args:
-            url: Nueva URL
-        """
-        self.url_bar.setText(url.toString())
+    def update_url_bar(self, url: QUrl, browser: BrowserEngine) -> None:
+        """Actualiza la barra de direcciones cuando cambia la URL"""
+        if browser == self.current_browser():
+            self.url_bar.setText(url.toString())
     
     def update_title(self, title: str) -> None:
-        """
-        Actualiza el título de la ventana
-        
-        Args:
-            title: Nuevo título
-        """
+        """Actualiza el título de la ventana"""
         self.setWindowTitle(f"{title} - UltraBrowser by TiiZss - https://www.tiizss.com")
     
     def toggle_camera(self, checked: bool) -> None:
-        """
-        Maneja el toggle de cámara
-        
-        Args:
-            checked: True si está activado, False si está desactivado
-        """
-        self.browser.set_camera_enabled(checked)
+        """Maneja el toggle de cámara (Global)"""
+        # Actualizar todas las pestañas
+        for i in range(self.tabs.count()):
+            browser = self.tabs.widget(i)
+            if isinstance(browser, BrowserEngine):
+                browser.set_camera_enabled(checked)
+                
         if checked:
             self.camera_toggle.setText("📷 Cámara: PERMITIDA")
-            self.status_bar.showMessage("Cámara habilitada - Los sitios web pueden solicitar acceso", 3000)
+            self.status_bar.showMessage("Cámara habilitada para TODAS las pestañas", 3000)
         else:
             self.camera_toggle.setText("📷 Cámara: BLOQUEADA")
-            self.status_bar.showMessage("Cámara bloqueada - Todas las solicitudes serán denegadas", 3000)
+            self.status_bar.showMessage("Cámara bloqueada para TODAS las pestañas", 3000)
     
     def toggle_microphone(self, checked: bool) -> None:
-        """
-        Maneja el toggle de micrófono
-        
-        Args:
-            checked: True si está activado, False si está desactivado
-        """
-        self.browser.set_microphone_enabled(checked)
+        """Maneja el toggle de micrófono (Global)"""
+        # Actualizar todas las pestañas
+        for i in range(self.tabs.count()):
+            browser = self.tabs.widget(i)
+            if isinstance(browser, BrowserEngine):
+                browser.set_microphone_enabled(checked)
+
         if checked:
             self.microphone_toggle.setText("🎤 Micrófono: PERMITIDO")
-            self.status_bar.showMessage("Micrófono habilitado - Los sitios web pueden solicitar acceso", 3000)
+            self.status_bar.showMessage("Micrófono habilitado para TODAS las pestañas", 3000)
         else:
             self.microphone_toggle.setText("🎤 Micrófono: BLOQUEADO")
-            self.status_bar.showMessage("Micrófono bloqueado - Todas las solicitudes serán denegadas", 3000)
+            self.status_bar.showMessage("Micrófono bloqueado para TODAS las pestañas", 3000)
     
     def toggle_tor(self, checked: bool) -> None:
-        """
-        Maneja el toggle de Tor
-        
-        Args:
-            checked: True si está activado, False si está desactivado
-        """
+        """Maneja el toggle de Tor (Global)"""
         if checked:
             if self.tor_manager.enable_tor():
-                # Configurar proxy Tor en el perfil WebEngine
                 proxy = self.tor_manager.get_proxy()
-                self.browser.set_tor_proxy(proxy)
+                # Aplicar a todas las pestañas existentes
+                for i in range(self.tabs.count()):
+                    browser = self.tabs.widget(i)
+                    if isinstance(browser, BrowserEngine):
+                        browser.set_tor_proxy(proxy)
+                        
                 self.tor_toggle.setText("🔒 Tor: ON")
-                self.status_bar.showMessage("Tor activado - Navegación a través de la red Tor", 3000)
+                self.status_bar.showMessage("Tor activado para TODAS las pestañas", 3000)
             else:
                 self.tor_toggle.setChecked(False)
-                self.status_bar.showMessage("Error: Tor no está disponible. Inicia el servicio Tor primero.", 5000)
+                self.status_bar.showMessage("Error: Tor no está disponible.", 5000)
         else:
             if self.tor_manager.disable_tor():
-                # Remover proxy del perfil WebEngine
-                self.browser.set_tor_proxy(None)
+                # Quitar proxy de todas las pestañas
+                for i in range(self.tabs.count()):
+                    browser = self.tabs.widget(i)
+                    if isinstance(browser, BrowserEngine):
+                        browser.set_tor_proxy(None)
+                        
                 self.tor_toggle.setText("🔒 Tor: OFF")
-                self.status_bar.showMessage("Tor desactivado - Navegación normal", 3000)
+                self.status_bar.showMessage("Tor desactivado", 3000)
     
     def new_tor_identity(self) -> None:
         """Solicita una nueva identidad de Tor"""
         if self.tor_manager.get_new_identity():
             self.status_bar.showMessage("Nueva identidad de Tor solicitada", 3000)
         else:
-            self.status_bar.showMessage("Error: No se pudo solicitar nueva identidad. Verifica que Tor esté activo.", 5000)
+            self.status_bar.showMessage("Error al solicitar identidad.", 5000)
     
     def clear_all(self) -> None:
-        """Limpia todo y borra rastro en RAM"""
-        # Limpiar todos los datos del navegador
-        self.browser.clear_all_data()
-        # Revocar todos los permisos
-        self.browser.set_camera_enabled(False)
-        self.browser.set_microphone_enabled(False)
-        # Actualizar toggles
+        """Limpia todo y borra rastro en RAM (Global)"""
+        # Limpiar todas las pestañas
+        for i in range(self.tabs.count()):
+            browser = self.tabs.widget(i)
+            if isinstance(browser, BrowserEngine):
+                browser.clear_all_data()
+                browser.set_camera_enabled(False)
+                browser.set_microphone_enabled(False)
+        
+        # Resetear toggles
         self.camera_toggle.setChecked(False)
         self.camera_toggle.setText("📷 Cámara: BLOQUEADA")
         self.microphone_toggle.setChecked(False)
         self.microphone_toggle.setText("🎤 Micrófono: BLOQUEADO")
-        self.status_bar.showMessage("Limpieza completada - Todos los datos y permisos revocados", 3000)
+        
+        self.status_bar.showMessage("Limpieza completada en todas las pestañas", 3000)
         logger.info("Limpieza completa realizada")
