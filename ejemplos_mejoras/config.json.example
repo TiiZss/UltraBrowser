@@ -1,0 +1,24 @@
+{
+  "tor": {
+    "socks_port": 9050,
+    "control_port": 9051,
+    "host": "127.0.0.1",
+    "timeout": 10,
+    "retry_attempts": 3
+  },
+  "default_homepage": "https://www.duckduckgo.com",
+  "force_https": true,
+  "block_insecure_content": true,
+  "enable_javascript": true,
+  "enable_plugins": false,
+  "enable_local_storage": false,
+  "webrtc_public_only": true,
+  "user_agents_file": "config/user_agents.json",
+  "rotate_user_agent": true,
+  "user_agent_rotation_interval": 30,
+  "debug_mode": false,
+  "log_file": "logs/ultrabrowser.log",
+  "window_width": 1200,
+  "window_height": 800,
+  "show_status_bar": true
+}

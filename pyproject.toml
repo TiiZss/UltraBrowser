@@ -1,0 +1,13 @@
+[project]
+name = "navigator"
+version = "0.1.0"
+description = "UltraBrowser: Navegador Privado, Seguro y Ligero con Integración Tor"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt6>=6.10.2",
+    "pyqt6-webengine>=6.10.0",
+    "stem>=1.8.2",
+]
+
+[project.scripts]
+navigator = "ultrabrowser.main:main"
