@@ -26,6 +26,11 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 *   **Engine**: PyQt6-WebEngine (Chromium-based)
 *   **Tor Control**: stem
 
+## Funcionalidades
+*   **Navegación por Pestañas**: Soporte completo para múltiples pestañas con atajos (Ctrl+T, Ctrl+W).
+*   **Privacidad Global**: Los interruptores de privacidad controlan todas las pestañas simultáneamente.
+
+
 ## Instalación y Ejecución
 
 Es necesario tener instalado [Python 3.12+](https://www.python.org/) y el servicio [Tor](https://www.torproject.org/).
