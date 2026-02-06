@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-02-06
+
+### Added
+- Auto-install support for uv and Python in run scripts (where possible).
+- License file (MIT).
+
+### Changed
+- Run scripts now use uv consistently for dependency install and execution.
+- Safer handling of cross-platform venvs between Windows and WSL/Linux.
+
 ## [0.2.0] - 2026-01-16
 
 ### Added

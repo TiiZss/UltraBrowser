@@ -4,6 +4,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/github/license/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/releases)
+![Version](https://img.shields.io/badge/version-v0.3.0-brightgreen)
 ![UV](https://img.shields.io/badge/uv-fast-purple)
 ![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)
 
