@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-02-28
+
+### Added
+- Added release date and downloads badges to README.
+
+### Fixed
+- Fixed internal project version consistency in `pyproject.toml`.
+
 ## [0.3.0] - 2026-02-06
 
 ### Added
