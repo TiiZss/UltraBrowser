@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-03-25
+
+### Added
+- **Ad Blocker** (`ad_blocker.py`): New `QWebEngineUrlRequestInterceptor` that blocks requests to 100+ known ad networks and trackers (Google Ads, Doubleclick, Taboola, Criteo, Hotjar, Facebook Pixel, etc.) at the network level, before they leave the browser. Pages maintain full functionality — only third-party ad resources are blocked. Toggle available in the toolbar with live counter in the status bar.
+- **Anti-Fingerprinting JS** (`ANTI_FINGERPRINT_JS`): Script injected via `QWebEngineScript` on every page at `DocumentCreation` time. Masks WebGL vendor/renderer, standardizes `navigator.deviceMemory`, `navigator.hardwareConcurrency`, `screen.colorDepth/pixelDepth`, and disables the Battery API.
+- **`TorConnectWorker` (QThread)**: Tor connection now runs in a background thread. The UI remains fully responsive during the 5–30 second connection process. A spinner screen is shown while connecting.
+- **`create_private_profile()`**: Dedicated factory function that creates a true off-the-record `QWebEngineProfile("")` (empty name = no disk persistence). Previously `defaultProfile()` was used, which may share state between instances.
+- **`closeEvent` override in `BrowserWindow`**: Orderly shutdown that destroys all `QWebEnginePage` objects before the `QWebEngineProfile` is released, eliminating the Chromium warning *"Release of profile requested but WebEnginePage still not deleted."*
+- **User-Agent rotation timer**: `QTimer` now actually rotates the User-Agent on the shared profile every N minutes (configurable). Previously the interval was configured but never executed automatically.
+- **`block_ads` config option**: New boolean field in `config.json` and `BrowserConfig` (default: `true`).
+
+### Changed
+- **True off-the-record profile**: All tabs now share a single `QWebEngineProfile("")` created at `BrowserWindow` level and passed into each `BrowserEngine`. Nothing is ever written to disk (no cookies, no cache, no history).
+- **`TorManager.get_exit_ip()`** (renamed from `get_current_ip()`): Previous implementation incorrectly sent a raw HTTP request directly to the SOCKS5 port without implementing the SOCKS5 protocol. New implementation uses `requests` with `socks5h://` proxy when available, or returns `None` safely.
+- **`load_user_agents()`**: Removed confusing recursive call used as fallback. Default list is now defined explicitly inside the function.
+- **`BrowserConfig.from_file()`**: Now filters unknown JSON keys for forward compatibility with older config files.
+- **`log_file` default**: Changed from `"logs/ultrabrowser.log"` to `null`. Logging to disk must be explicitly enabled in `config.json`. Writing navigation data to disk by default was a privacy concern.
+- **`run.bat` / `run.ps1` / `run.sh`**: Fixed `uv pip install` failing with *"No virtual environment found"*. Scripts now use `uv sync` (reads `pyproject.toml`, creates `.venv` automatically) instead of `uv pip install`.
+- **`run.*` scripts**: Terminal/console window now closes automatically on clean exit. The pause prompt only appears on error, so the user can read the message.
+- **`pyproject.toml`**: Added `[tool.uv] package = false` to suppress *"Skipping installation of entry points"* warning. Added `link-mode = "copy"` to suppress hardlink warning on cross-filesystem setups. Removed unused `[project.scripts]` entry.
+
+### Fixed
+- **Duplicate camera denial bug**: `handle_permission_request()` was calling `setFeaturePermission(PermissionDeniedByUser)` twice for camera (duplicate code block at lines 153–155). Now has a single call per branch.
+- **UI freeze during Tor connection**: `toggle_tor()` previously called `time.sleep()` and `QApplication.processEvents()` in the main thread, freezing the interface. Fixed by moving connection to `TorConnectWorker(QThread)`.
+- **`bare except:` in `TorManager.__del__`**: Changed to `except Exception: pass` with explanatory comment.
+- **Linux/macOS Tor binary permissions**: The bundled Tor binary now has executable permissions set automatically (`chmod +x`) before launch.
+
+---
+
 ## [0.3.1] - 2026-02-28
 
 ### Added

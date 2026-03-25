@@ -1,0 +1,2 @@
+docs: add release date and downloads badges
+docs: update changelog and badges for v0.3.0

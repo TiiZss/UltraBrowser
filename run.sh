@@ -1,126 +1,119 @@
 #!/usr/bin/env bash
 # Script para ejecutar UltraBrowser en Linux/macOS
-# Se intenta usar uv primero
+# Gestiona el entorno virtual y dependencias automáticamente
+
+set -euo pipefail
+cd "$(dirname "$0")"
 
 UV_CMD="uv"
 
-if ! command -v uv &> /dev/null; then
+# Buscar uv en el PATH, intentar instalarlo si no está
+if ! command -v uv &>/dev/null; then
     echo "[ADVERTENCIA] uv no encontrado en el PATH. Intentando instalar uv..."
-    if command -v curl &> /dev/null; then
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-    elif command -v wget &> /dev/null; then
-        wget -qO- https://astral.sh/uv/install.sh | sh
+    if command -v curl &>/dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh || true
+    elif command -v wget &>/dev/null; then
+        wget -qO- https://astral.sh/uv/install.sh | sh || true
     else
-        echo "[ERROR] No se encontro curl ni wget para instalar uv."
+        echo "[ADVERTENCIA] No se encontro curl ni wget para instalar uv."
     fi
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
 
-if command -v uv &> /dev/null; then
-    echo "[INFO] uv detectado. Ejecutando con 'uv run'..."
-    echo "[INFO] Verificando e instalando dependencias con uv..."
-    $UV_CMD pip install pyqt6 pyqt6-webengine stem
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] Fallo al instalar dependencias con uv."
-        read -p "Presiona Enter para salir"
-        exit 1
-    fi
-    $UV_CMD run -m ultrabrowser.main
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] Fallo al ejecutar con uv."
-        read -p "Presiona Enter para salir"
-        exit 1
-    fi
-else
-    echo "[ADVERTENCIA] uv no encontrado en el PATH. Iniciando modo de auto-preparacion..."
+# ── Rama principal: uv disponible ─────────────────────────────────────────────
+if command -v uv &>/dev/null; then
+    echo "[INFO] uv detectado. Sincronizando entorno y dependencias..."
 
-    # Check for python3 or python
-    if command -v python3 &> /dev/null; then
+    # 'uv sync' crea el .venv si no existe y lee las deps de pyproject.toml
+    if ! uv sync; then
+        echo "[ADVERTENCIA] uv sync fallo. Intentando crear venv manualmente..."
+        uv venv || true
+        uv pip install pyqt6 pyqt6-webengine stem
+    fi
+
+    echo "[INFO] Ejecutando UltraBrowser..."
+    uv run python -m ultrabrowser.main
+
+# ── Fallback: Python puro con venv manual ─────────────────────────────────────
+else
+    echo "[ADVERTENCIA] uv no disponible. Usando Python con venv manual..."
+
+    # Detectar comando de Python disponible
+    if command -v python3 &>/dev/null; then
         PYTHON_CMD="python3"
-    elif command -v python &> /dev/null; then
+    elif command -v python &>/dev/null; then
         PYTHON_CMD="python"
     else
         echo "[ADVERTENCIA] Python no encontrado. Intentando instalar..."
-        if command -v apt-get &> /dev/null; then
-            sudo apt-get update
+        if command -v apt-get &>/dev/null; then
+            sudo apt-get update -q
             sudo apt-get install -y python3 python3-venv python3-pip
-        elif command -v dnf &> /dev/null; then
+        elif command -v dnf &>/dev/null; then
             sudo dnf install -y python3 python3-venv python3-pip
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y python3 python3-venv python3-pip
-        elif command -v pacman &> /dev/null; then
+        elif command -v pacman &>/dev/null; then
             sudo pacman -Syu --noconfirm python python-virtualenv python-pip
-        elif command -v apk &> /dev/null; then
-            sudo apk add --no-cache python3 py3-virtualenv py3-pip
+        elif command -v brew &>/dev/null; then
+            brew install python
         else
-            echo "[ERROR] No se encontro un gestor de paquetes compatible para instalar Python."
+            echo "[ERROR] No se encontro un gestor de paquetes para instalar Python."
+            echo "        Instala Python 3.12+ desde: https://www.python.org/downloads/"
+            echo "        O uv desde: https://docs.astral.sh/uv/"
+            read -rp "Presiona Enter para salir"
+            exit 1
         fi
 
-        if command -v python3 &> /dev/null; then
+        if command -v python3 &>/dev/null; then
             PYTHON_CMD="python3"
-        elif command -v python &> /dev/null; then
+        elif command -v python &>/dev/null; then
             PYTHON_CMD="python"
         else
-            echo "[ERROR] Python no encontrado. Por favor instala Python 3.12+ o uv."
-            echo "https://www.python.org/downloads/"
-            read -p "Presiona Enter para salir"
+            echo "[ERROR] Python no encontrado tras instalación."
+            read -rp "Presiona Enter para salir"
             exit 1
         fi
     fi
 
-    if [ -d ".venv" ] && [ ! -f .venv/bin/activate ]; then
-        if [ -f .venv/Scripts/activate.bat ]; then
+    # Detectar y limpiar venv incompatible (de Windows)
+    if [ -d ".venv" ] && [ ! -f ".venv/bin/activate" ]; then
+        if [ -f ".venv/Scripts/activate.bat" ]; then
             echo "[ADVERTENCIA] Se detecto un entorno virtual de Windows en .venv."
         else
             echo "[ADVERTENCIA] El entorno virtual .venv no es valido en este sistema."
         fi
-        echo "[INFO] Rehaciendo el entorno virtual para WSL..."
-        mv .venv .venv.windows.bak 2>/dev/null
+        echo "[INFO] Rehaciendo el entorno virtual para Linux/macOS..."
+        mv .venv .venv.windows.bak 2>/dev/null || true
     fi
 
+    # Crear venv si no existe
     if [ ! -d ".venv" ]; then
         echo "[INFO] Creando entorno virtual (.venv)..."
         $PYTHON_CMD -m venv .venv
-        if [ $? -ne 0 ]; then
-            echo "[ERROR] Fallo al crear el entorno virtual."
-            read -p "Presiona Enter para salir"
-            exit 1
-        fi
     fi
 
-    if [ -f .venv/bin/activate ]; then
-        echo "[INFO] Activando entorno virtual..."
-        source .venv/bin/activate
-
-        echo "[INFO] Instalando uv dentro del entorno virtual..."
-        $PYTHON_CMD -m pip install --upgrade uv
-        if [ $? -ne 0 ]; then
-            echo "[ERROR] Fallo al instalar uv en el entorno virtual."
-            read -p "Presiona Enter para salir"
-            exit 1
-        fi
-
-        echo "[INFO] Verificando e instalando dependencias con uv..."
-        uv pip install pyqt6 pyqt6-webengine stem
-        if [ $? -ne 0 ]; then
-            echo "[ERROR] Fallo al instalar dependencias con uv."
-            read -p "Presiona Enter para salir"
-            exit 1
-        fi
-
-        echo "[INFO] Ejecutando UltraBrowser..."
-        uv run -m ultrabrowser.main
-    else
+    if [ ! -f ".venv/bin/activate" ]; then
         echo "[ERROR] No se pudo encontrar el script de activacion del entorno virtual."
-        read -p "Presiona Enter para salir"
+        read -rp "Presiona Enter para salir"
         exit 1
     fi
+
+    echo "[INFO] Activando entorno virtual..."
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+
+    echo "[INFO] Actualizando pip..."
+    pip install --upgrade pip --quiet
+
+    echo "[INFO] Instalando dependencias..."
+    pip install pyqt6 pyqt6-webengine stem --quiet
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Fallo al instalar dependencias."
+        echo "        Prueba manualmente: pip install pyqt6 pyqt6-webengine stem"
+        read -rp "Presiona Enter para salir"
+        exit 1
+    fi
+
+    echo "[INFO] Ejecutando UltraBrowser..."
+    python -m ultrabrowser.main
 fi
 
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Error al ejecutar la aplicacion."
-    read -p "Presiona Enter para salir"
-    exit 1
-fi
-
-read -p "Presiona Enter para salir"
+exit 0

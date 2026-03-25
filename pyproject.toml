@@ -1,6 +1,6 @@
 [project]
 name = "navigator"
-version = "0.3.1"
+version = "0.4.0"
 description = "UltraBrowser: Navegador Privado, Seguro y Ligero con Integración Tor"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,5 +9,6 @@ dependencies = [
     "stem>=1.8.2",
 ]
 
-[project.scripts]
-navigator = "ultrabrowser.main:main"
+[tool.uv]
+package = false
+link-mode = "copy"

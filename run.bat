@@ -2,13 +2,15 @@
 setlocal
 cd /d "%~dp0"
 REM Script para ejecutar UltraBrowser en Windows
-REM Intenta usar uv primero para gestionar el entorno y las dependencias
+REM Intenta usar uv primero (gestiona venv+deps automáticamente),
+REM si no, cae a Python puro con venv manual.
 
 set "UV_CMD=uv"
 
 where uv >nul 2>nul
 if not errorlevel 1 goto :RUN_UV
 
+REM uv no encontrado: intentar instalarlo
 echo [ADVERTENCIA] uv no encontrado en el PATH. Intentando instalar uv...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr -useb https://astral.sh/uv/install.ps1 | iex"
 set "PATH=%USERPROFILE%\.local\bin;%USERPROFILE%\.cargo\bin;%PATH%"
@@ -19,27 +21,33 @@ if not errorlevel 1 goto :RUN_UV
 if exist "%USERPROFILE%\.local\bin\uv.exe" set "UV_CMD=%USERPROFILE%\.local\bin\uv.exe"
 if exist "%USERPROFILE%\.cargo\bin\uv.exe" set "UV_CMD=%USERPROFILE%\.cargo\bin\uv.exe"
 
-where "%UV_CMD%" >nul 2>nul
+"%UV_CMD%" --version >nul 2>nul
 if not errorlevel 1 goto :RUN_UV
 
 goto :CHECK_PYTHON
 
 :RUN_UV
-echo [INFO] uv detectado. Ejecutando con 'uv run'...
-echo [INFO] Verificando e instalando dependencias con uv...
-"%UV_CMD%" pip install pyqt6 pyqt6-webengine stem
-if errorlevel 1 goto :ERROR_DEPS
-"%UV_CMD%" run -m ultrabrowser.main
+echo [INFO] uv detectado. Sincronizando entorno y dependencias...
+REM 'uv sync' crea el .venv si no existe y lee las deps de pyproject.toml
+"%UV_CMD%" sync
+if errorlevel 1 (
+    echo [ADVERTENCIA] uv sync fallo. Intentando instalar dependencias directamente...
+    "%UV_CMD%" venv
+    "%UV_CMD%" pip install pyqt6 pyqt6-webengine stem
+    if errorlevel 1 goto :ERROR_DEPS
+)
+echo [INFO] Ejecutando UltraBrowser...
+"%UV_CMD%" run python -m ultrabrowser.main
 if errorlevel 1 goto :ERROR
 goto :END
 
 :CHECK_PYTHON
-echo [ADVERTENCIA] uv no encontrado en el PATH.
-echo [INFO] Iniciando modo de auto-preparacion...
+echo [ADVERTENCIA] uv no disponible. Usando Python con entorno virtual manual...
 
 where python >nul 2>nul
 if errorlevel 1 goto :NO_PYTHON
 
+REM Detectar y limpiar venv incompatible (de Linux/WSL)
 if exist ".venv\" if not exist ".venv\Scripts\activate.bat" (
     if exist ".venv\bin\activate" (
         echo [ADVERTENCIA] Se detecto un entorno virtual de Linux/WSL en .venv.
@@ -50,35 +58,35 @@ if exist ".venv\" if not exist ".venv\Scripts\activate.bat" (
     ren ".venv" ".venv.wsl.bak"
 )
 
+REM Crear venv si no existe
 if not exist ".venv\" (
     echo [INFO] Creando entorno virtual (.venv)...
     python -m venv ".venv"
     if errorlevel 1 goto :ERROR_VENV
 )
 
-if exist ".venv\Scripts\activate.bat" (
-    echo [INFO] Activando entorno virtual...
-    call ".venv\Scripts\activate.bat"
-    
-    echo [INFO] Instalando uv dentro del entorno virtual...
-    python -m pip install --upgrade uv
-    if errorlevel 1 goto :ERROR_UV
-
-    echo [INFO] Verificando e instalando dependencias con uv...
-    uv pip install pyqt6 pyqt6-webengine stem
-    if errorlevel 1 goto :ERROR_DEPS
-
-    echo [INFO] Ejecutando UltraBrowser...
-    uv run -m ultrabrowser.main
-    if errorlevel 1 goto :ERROR
-    goto :END
-) else (
+if not exist ".venv\Scripts\activate.bat" (
     echo [ERROR] No se pudo encontrar el script de activacion del entorno virtual.
     goto :ERROR_PAUSE
 )
 
+echo [INFO] Activando entorno virtual...
+call ".venv\Scripts\activate.bat"
+
+echo [INFO] Actualizando pip...
+python -m pip install --upgrade pip --quiet
+
+echo [INFO] Instalando dependencias...
+pip install pyqt6 pyqt6-webengine stem --quiet
+if errorlevel 1 goto :ERROR_DEPS
+
+echo [INFO] Ejecutando UltraBrowser...
+python -m ultrabrowser.main
+if errorlevel 1 goto :ERROR
+goto :END
+
 :NO_PYTHON
-echo [ADVERTENCIA] Python no encontrado. Intentando instalar...
+echo [ADVERTENCIA] Python no encontrado. Intentando instalar con winget...
 where winget >nul 2>nul
 if errorlevel 1 goto :NO_PYTHON_FINAL
 winget install -e --id Python.Python.3.12
@@ -86,28 +94,27 @@ where python >nul 2>nul
 if not errorlevel 1 goto :CHECK_PYTHON
 
 :NO_PYTHON_FINAL
-echo [ERROR] Python no encontrado. Por favor instala Python 3.12+ o uv.
-echo https://www.python.org/downloads/
+echo [ERROR] Python no encontrado. Por favor instala Python 3.12+ desde:
+echo         https://www.python.org/downloads/
+echo         O instala uv desde: https://docs.astral.sh/uv/
 goto :ERROR_PAUSE
 
 :ERROR_VENV
 echo [ERROR] Fallo al crear el entorno virtual.
 goto :ERROR_PAUSE
 
-:ERROR_UV
-echo [ERROR] Fallo al instalar uv en el entorno virtual.
-goto :ERROR_PAUSE
-
 :ERROR_DEPS
-echo [ERROR] Fallo al instalar dependencias con uv.
+echo [ERROR] Fallo al instalar dependencias.
+echo         Prueba manualmente: pip install pyqt6 pyqt6-webengine stem
 goto :ERROR_PAUSE
 
 :ERROR
 echo [ERROR] Error al ejecutar la aplicacion.
+echo         Revisa los logs o ejecuta con: python -m ultrabrowser.main
+
 :ERROR_PAUSE
 pause
 exit /b 1
 
 :END
-echo [INFO] Aplicacion finalizada.
-pause
+exit /b 0

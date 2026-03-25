@@ -14,11 +14,12 @@
   "enable_plugins": false,
   "enable_local_storage": false,
   "webrtc_public_only": true,
+  "block_ads": true,
   "user_agents_file": "config/user_agents.json",
   "rotate_user_agent": true,
   "user_agent_rotation_interval": 30,
   "debug_mode": false,
-  "log_file": "logs/ultrabrowser.log",
+  "log_file": null,
   "window_width": 1200,
   "window_height": 800,
   "show_status_bar": true

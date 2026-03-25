@@ -3,6 +3,7 @@ UltraBrowser: Navegador Privado, Seguro y Ligero con Integración Tor
 Punto de entrada principal de la aplicación
 """
 
+import os
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
@@ -35,6 +36,13 @@ def main():
     
     # Establecer configuración global
     set_config(config)
+    
+    # Bypass de proxy para localhost (cuando Tor está activo, las peticiones a 127.0.0.1
+    # no deben ir por Tor o los callbacks de apps locales como Dash fallan)
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+    if "--proxy-bypass-list" not in flags:
+        bypass = "--proxy-bypass-list=localhost,127.0.0.1,<local>"
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = f"{flags} {bypass}".strip() if flags else bypass
     
     # Crear aplicación Qt
     app = QApplication(sys.argv)
