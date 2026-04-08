@@ -42,6 +42,7 @@ Se han implementado todas las mejoras de seguridad y usabilidad propuestas en `M
    - Configuración de privacidad (JavaScript, plugins, WebRTC, etc.)
    - Configuración de UI (tamaño de ventana, barra de estado)
    - Configuración de logging
+   - Configuración de diagnostico persistente (directorio y archivos de crash)
 
 5. **`config/user_agents.json`** - Lista de User-Agents
    - 8 User-Agents diferentes para anti-fingerprinting

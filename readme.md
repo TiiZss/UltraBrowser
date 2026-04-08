@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/releases)
 ![Release Date](https://img.shields.io/github/release-date/TiiZss/UltraBrowser)
 ![Downloads](https://img.shields.io/github/downloads/TiiZss/UltraBrowser/total)
-![Version](https://img.shields.io/badge/version-v0.4.0-brightgreen)
+![Version](https://img.shields.io/badge/version-v0.5.0-brightgreen)
 ![UV](https://img.shields.io/badge/uv-fast-purple)
 ![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)
 
@@ -28,6 +28,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
   - Bloqueo de WebRTC para prevenir fugas de IP local.
 - **Gestión de Hardware**: Toggles para habilitar/deshabilitar cámara y micrófono. Bloqueo estricto por defecto.
 - **Forzado HTTPS**: Redirección automática de HTTP a HTTPS con protección anti-loop.
+- **Diagnóstico Persistente**: Logs de crash de Python y Chromium fuera del repositorio, con acceso directo desde la UI y apertura automática en Windows cuando el arranque falla.
 
 ### 🚀 Stack Tecnológico
 - **Core**: Python 3.12+
@@ -43,6 +44,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Limpieza Rápida**: Botón para borrar caché, cookies y datos de sesión de todas las pestañas de una sola vez (`Ctrl+Shift+Del`).
 - **Nueva Identidad Tor**: Solicita un nuevo circuito Tor (nueva IP) sin necesidad de desconectar.
 - **Búsqueda Integrada**: Las búsquedas desde la barra de direcciones van a DuckDuckGo automáticamente.
+- **Herramientas de Diagnóstico**: Carpeta de logs accesible desde el toolbar, el menú `Herramientas` o el atajo `Ctrl+Alt+D`.
 
 ## Instalación y Ejecución
 
@@ -65,6 +67,8 @@ chmod +x run.sh
 
 Los scripts de ejecución se encargan automáticamente de crear el entorno virtual e instalar las dependencias. La ventana de terminal se cierra sola al salir del navegador.
 
+En Windows, si el arranque falla y `open_diagnostics_on_failure` está activo, los lanzadores abrirán automáticamente la carpeta de diagnóstico para inspeccionar los logs.
+
 ## Configuración
 
 Edita `config/config.json` para personalizar el comportamiento:
@@ -77,11 +81,17 @@ Edita `config/config.json` para personalizar el comportamiento:
   "user_agent_rotation_interval": 30,
   "default_homepage": "https://www.duckduckgo.com",
   "debug_mode": false,
-  "log_file": null
+  "log_file": null,
+  "diagnostics_dir": null,
+  "open_diagnostics_on_failure": true
 }
 ```
 
 > **Nota de privacidad**: `log_file` es `null` por defecto. Activarlo escribe datos de navegación en disco — úsalo solo para depuración.
+>
+> **Diagnóstico persistente**: si `diagnostics_dir` es `null`, UltraBrowser usa `%LOCALAPPDATA%/UltraBrowser/logs` en Windows y `~/.ultrabrowser/logs` en Linux/macOS. También puedes fijar `chromium_log_file`, `fault_log_file` y `uncaught_exceptions_file` de forma individual.
+>
+> **Windows**: con `open_diagnostics_on_failure: true`, [run.bat](run.bat) y [run.ps1](run.ps1) abrirán automáticamente la carpeta de diagnóstico si el arranque falla.
 
 ## Estructura del Proyecto
 
@@ -93,6 +103,7 @@ UltraBrowser/
 │   ├── tor_logic.py       # Gestión de Tor (SOCKS5, control, identidad)
 │   ├── ad_blocker.py      # Bloqueador de anuncios y rastreadores
 │   ├── config.py          # Sistema de configuración
+│   ├── diagnostics.py     # Resolución de rutas y utilidades de diagnóstico
 │   ├── exceptions.py      # Excepciones personalizadas
 │   └── logging_config.py  # Sistema de logging
 ├── config/
@@ -116,6 +127,7 @@ UltraBrowser/
 | `Ctrl+W` | Cerrar pestaña activa |
 | `Ctrl+L` | Foco en la barra de direcciones |
 | `Ctrl+Shift+Del` | Limpiar todos los datos |
+| `Ctrl+Alt+D` | Abrir carpeta de diagnóstico |
 | `F5` | Recargar página |
 | `Alt+←` | Atrás |
 | `Alt+→` | Adelante |

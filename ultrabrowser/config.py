@@ -54,6 +54,11 @@ class BrowserConfig:
     # Nota de privacidad: log_file es None por defecto para no escribir datos
     # de navegación en disco. Activar solo para depuración.
     log_file: Optional[Path] = None
+    diagnostics_dir: Optional[Path] = None
+    chromium_log_file: Optional[Path] = None
+    fault_log_file: Optional[Path] = None
+    uncaught_exceptions_file: Optional[Path] = None
+    open_diagnostics_on_failure: bool = True
 
     # UI
     window_width: int = 1200
@@ -89,10 +94,17 @@ class BrowserConfig:
             raise ConfigFileInvalidError(f"Error al leer {config_path}: {e}") from e
 
         # Convertir rutas de string a Path
-        if 'user_agents_file' in data:
-            data['user_agents_file'] = Path(data['user_agents_file'])
-        if 'log_file' in data and data['log_file']:
-            data['log_file'] = Path(data['log_file'])
+        path_fields = {
+            'user_agents_file',
+            'log_file',
+            'diagnostics_dir',
+            'chromium_log_file',
+            'fault_log_file',
+            'uncaught_exceptions_file',
+        }
+        for field_name in path_fields:
+            if field_name in data and data[field_name]:
+                data[field_name] = Path(data[field_name])
 
         # Manejar configuración anidada de Tor
         if 'tor' in data and isinstance(data['tor'], dict):

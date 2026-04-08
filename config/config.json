@@ -20,6 +20,11 @@
   "user_agent_rotation_interval": 30,
   "debug_mode": false,
   "log_file": null,
+  "diagnostics_dir": null,
+  "chromium_log_file": null,
+  "fault_log_file": null,
+  "uncaught_exceptions_file": null,
+  "open_diagnostics_on_failure": true,
   "window_width": 1200,
   "window_height": 800,
   "show_status_bar": true

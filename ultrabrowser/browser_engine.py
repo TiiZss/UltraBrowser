@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QToolButton
 )
 from PyQt6.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent
+from PyQt6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent, QDesktopServices
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import (
     QWebEngineSettings, QWebEngineProfile, QWebEnginePage,
@@ -33,6 +33,7 @@ from .tor_logic import TorManager
 from .ad_blocker import AdBlocker
 from .logging_config import get_logger
 from .config import get_config, load_user_agents
+from .diagnostics import get_diagnostics_paths
 
 logger = get_logger()
 
@@ -481,6 +482,7 @@ class BrowserWindow(QMainWindow):
 
         config = get_config()
         self.config = config
+        self.diagnostics_paths = get_diagnostics_paths(self.config)
 
         self.setWindowTitle(
             "UltraBrowser - Navegador Privado y seguro by TiiZss - https://www.tiizss.com"
@@ -554,6 +556,7 @@ class BrowserWindow(QMainWindow):
         # UI: Toolbar + Status bar
         # ------------------------------------------------------------------
         self.create_toolbar()
+        self.create_menus()
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -732,10 +735,10 @@ class BrowserWindow(QMainWindow):
         )
         toolbar.addWidget(self.tor_toggle)
 
-        new_id_action = QAction("🔄 Nueva ID", self)
-        new_id_action.setToolTip("Solicitar nueva identidad Tor (nuevo circuito)")
-        new_id_action.triggered.connect(self.new_tor_identity)
-        toolbar.addAction(new_id_action)
+        self.new_identity_action = QAction("🔄 Nueva ID", self)
+        self.new_identity_action.setToolTip("Solicitar nueva identidad Tor (nuevo circuito)")
+        self.new_identity_action.triggered.connect(self.new_tor_identity)
+        toolbar.addAction(self.new_identity_action)
 
         toolbar.addSeparator()
 
@@ -783,11 +786,25 @@ class BrowserWindow(QMainWindow):
         toolbar.addSeparator()
 
         # Limpiar datos
-        clear_action = QAction("🗑️ Limpiar Todo", self)
-        clear_action.setShortcut(QKeySequence("Ctrl+Shift+Delete"))
-        clear_action.setToolTip("Limpiar caché, cookies y datos de sesión (Ctrl+Shift+Del)")
-        clear_action.triggered.connect(self.clear_all)
-        toolbar.addAction(clear_action)
+        self.clear_action = QAction("🗑️ Limpiar Todo", self)
+        self.clear_action.setShortcut(QKeySequence("Ctrl+Shift+Delete"))
+        self.clear_action.setToolTip("Limpiar caché, cookies y datos de sesión (Ctrl+Shift+Del)")
+        self.clear_action.triggered.connect(self.clear_all)
+        toolbar.addAction(self.clear_action)
+
+        self.diagnostics_action = QAction("📂 Diagnóstico", self)
+        self.diagnostics_action.setShortcut(QKeySequence("Ctrl+Alt+D"))
+        self.diagnostics_action.setToolTip("Abrir carpeta de logs y diagnostico persistente (Ctrl+Alt+D)")
+        self.diagnostics_action.triggered.connect(self.open_diagnostics_folder)
+        toolbar.addAction(self.diagnostics_action)
+
+    def create_menus(self) -> None:
+        """Crea el menu superior con accesos a acciones frecuentes."""
+        tools_menu = self.menuBar().addMenu("Herramientas")
+        tools_menu.addAction(self.diagnostics_action)
+        tools_menu.addAction(self.clear_action)
+        tools_menu.addSeparator()
+        tools_menu.addAction(self.new_identity_action)
 
     def setup_shortcuts(self) -> None:
         """Configura atajos de teclado globales"""
@@ -800,6 +817,8 @@ class BrowserWindow(QMainWindow):
         close_tab.setShortcut(QKeySequence("Ctrl+W"))
         close_tab.triggered.connect(lambda: self.close_tab(self.tabs.currentIndex()))
         self.addAction(close_tab)
+
+        self.addAction(self.diagnostics_action)
 
     # ------------------------------------------------------------------
     # Eventos de carga de página
@@ -1014,6 +1033,21 @@ class BrowserWindow(QMainWindow):
             self.status_bar.showMessage("Nueva identidad Tor solicitada", 3000)
         else:
             self.status_bar.showMessage("Error al cambiar identidad Tor", 5000)
+
+    def open_diagnostics_folder(self) -> None:
+        """Abre la carpeta de diagnostico persistente configurada."""
+        diagnostics_dir = self.diagnostics_paths["log_dir"]
+
+        if not diagnostics_dir.exists():
+            diagnostics_dir.mkdir(parents=True, exist_ok=True)
+
+        opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(diagnostics_dir)))
+        if opened:
+            self.status_bar.showMessage(f"Carpeta de diagnostico abierta: {diagnostics_dir}", 4000)
+            logger.info(f"Carpeta de diagnostico abierta: {diagnostics_dir}")
+        else:
+            self.status_bar.showMessage("No se pudo abrir la carpeta de diagnostico", 5000)
+            logger.error(f"No se pudo abrir la carpeta de diagnostico: {diagnostics_dir}")
 
     # ------------------------------------------------------------------
     # Limpieza

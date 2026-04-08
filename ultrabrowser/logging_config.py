@@ -4,9 +4,28 @@ Sistema de logging profesional para UltraBrowser
 
 import logging
 import sys
+import platform
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 from typing import Optional
+
+
+def get_runtime_data_dir() -> Path:
+    """Devuelve el directorio de runtime fuera del repositorio."""
+    if platform.system() == 'Windows':
+        base_dir = Path.home() / 'AppData' / 'Local'
+        local_appdata = Path(
+            logging.os.environ.get('LOCALAPPDATA', str(base_dir))
+        )
+        return local_appdata / 'UltraBrowser'
+    return Path.home() / '.ultrabrowser'
+
+
+def get_runtime_log_dir() -> Path:
+    """Devuelve el directorio de logs persistentes del runtime."""
+    log_dir = get_runtime_data_dir() / 'logs'
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
 
 
 def setup_logging(

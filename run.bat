@@ -6,6 +6,10 @@ REM Intenta usar uv primero (gestiona venv+deps automáticamente),
 REM si no, cae a Python puro con venv manual.
 
 set "UV_CMD=uv"
+set "PIP_DEPS="pyqt6>=6.10.2" "pyqt6-webengine>=6.10.0" "stem>=1.8.2""
+
+set "DIAG_RUNNER="
+set "DIAG_ARGS="
 
 where uv >nul 2>nul
 if not errorlevel 1 goto :RUN_UV
@@ -28,12 +32,14 @@ goto :CHECK_PYTHON
 
 :RUN_UV
 echo [INFO] uv detectado. Sincronizando entorno y dependencias...
+set "DIAG_RUNNER=%UV_CMD%"
+set "DIAG_ARGS=run python"
 REM 'uv sync' crea el .venv si no existe y lee las deps de pyproject.toml
 "%UV_CMD%" sync
 if errorlevel 1 (
     echo [ADVERTENCIA] uv sync fallo. Intentando instalar dependencias directamente...
     "%UV_CMD%" venv
-    "%UV_CMD%" pip install pyqt6 pyqt6-webengine stem
+    "%UV_CMD%" pip install %PIP_DEPS%
     if errorlevel 1 goto :ERROR_DEPS
 )
 echo [INFO] Ejecutando UltraBrowser...
@@ -72,12 +78,14 @@ if not exist ".venv\Scripts\activate.bat" (
 
 echo [INFO] Activando entorno virtual...
 call ".venv\Scripts\activate.bat"
+set "DIAG_RUNNER=python"
+set "DIAG_ARGS="
 
 echo [INFO] Actualizando pip...
 python -m pip install --upgrade pip --quiet
 
 echo [INFO] Instalando dependencias...
-pip install pyqt6 pyqt6-webengine stem --quiet
+python -m pip install %PIP_DEPS% --quiet
 if errorlevel 1 goto :ERROR_DEPS
 
 echo [INFO] Ejecutando UltraBrowser...
@@ -105,16 +113,33 @@ goto :ERROR_PAUSE
 
 :ERROR_DEPS
 echo [ERROR] Fallo al instalar dependencias.
-echo         Prueba manualmente: pip install pyqt6 pyqt6-webengine stem
+echo         Prueba manualmente: python -m pip install %PIP_DEPS%
 goto :ERROR_PAUSE
 
 :ERROR
+call :OPEN_DIAGNOSTICS
 echo [ERROR] Error al ejecutar la aplicacion.
 echo         Revisa los logs o ejecuta con: python -m ultrabrowser.main
 
 :ERROR_PAUSE
 pause
 exit /b 1
+
+:OPEN_DIAGNOSTICS
+if not defined DIAG_RUNNER goto :EOF
+
+set "OPEN_DIAGNOSTICS="
+for /f "usebackq delims=" %%I in (`%DIAG_RUNNER% %DIAG_ARGS% -m ultrabrowser.diagnostics --print-open-on-failure 2^>nul`) do set "OPEN_DIAGNOSTICS=%%I"
+if /I not "%OPEN_DIAGNOSTICS%"=="1" goto :EOF
+
+set "DIAG_DIR="
+for /f "usebackq delims=" %%I in (`%DIAG_RUNNER% %DIAG_ARGS% -m ultrabrowser.diagnostics --print-log-dir 2^>nul`) do set "DIAG_DIR=%%I"
+if not defined DIAG_DIR goto :EOF
+if not exist "%DIAG_DIR%" goto :EOF
+
+echo [INFO] Abriendo carpeta de diagnostico: %DIAG_DIR%
+start "" explorer "%DIAG_DIR%"
+goto :EOF
 
 :END
 exit /b 0

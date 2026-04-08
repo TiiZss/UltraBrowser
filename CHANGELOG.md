@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-04-08
+
+### Added
+- **Diagnóstico persistente** (`ultrabrowser/diagnostics.py`): Nuevo módulo central para resolver directorios y archivos de diagnóstico en runtime. Soporta configuración desde `config/config.json` y expone utilidades CLI para que los scripts de arranque consulten la ruta efectiva de logs.
+- **Logs de crash y Chromium**: La aplicación ahora registra `python-fault.log`, `uncaught-exceptions.log` y `qtwebengine-chromium.log` fuera del repositorio por defecto. Esto deja trazas útiles incluso cuando el cierre viene de QtWebEngine o del runtime nativo de Windows.
+- **Acceso a diagnóstico desde la UI**: Nueva acción `📂 Diagnóstico` en la barra principal, menú `Herramientas` y atajo global `Ctrl+Alt+D` para abrir la carpeta de logs persistentes sin salir del navegador.
+- **Configuración de diagnóstico**: Nuevas claves `diagnostics_dir`, `chromium_log_file`, `fault_log_file`, `uncaught_exceptions_file` y `open_diagnostics_on_failure` en `config/config.json` y en el ejemplo de configuración.
+
+### Changed
+- **Secuencia de arranque de QtWebEngine**: `main.py` ahora prepara el entorno de Qt y Chromium antes de cargar `BrowserWindow`, evitando que flags críticas lleguen demasiado tarde al motor embebido.
+- **Estabilidad de renderizado en Windows**: UltraBrowser usa OpenGL por software por defecto en Windows (`ULTRABROWSER_USE_SOFTWARE_OPENGL=1`) para reducir cierres nativos asociados a drivers gráficos o inicialización de WebEngine.
+- **Scripts de arranque de Windows**: `run.bat` y `run.ps1` ahora instalan dependencias usando los mismos mínimos declarados en `pyproject.toml` en lugar de versiones flotantes.
+- **Tor runtime fuera del repositorio**: El estado mutable de Tor pasa a `%LOCALAPPDATA%/UltraBrowser/tor_data` en Windows y `~/.ultrabrowser/tor_data` en Linux/macOS. Esto evita contaminar el árbol git con locks y cachés generados por ejecución.
+- **Documentación de configuración**: README y ejemplos actualizados para reflejar las rutas de diagnóstico, la apertura automática de logs en Windows y las nuevas acciones disponibles en la interfaz.
+
+### Fixed
+- **Detección de Tor no disponible**: `TorManager` ahora contempla también `SocketError` de `stem` cuando valida el puerto de control, reduciendo falsos errores y mejorando el diagnóstico real.
+- **Locks obsoletos de Tor**: Se eliminan locks residuales antes de iniciar el proceso Tor portable, evitando fallos intermitentes tras cierres anteriores o sesiones abortadas.
+- **Reproducibilidad del entorno en Windows**: Las rutas de diagnóstico y la apertura automática de la carpeta de logs se resuelven contra la configuración efectiva del proyecto, en lugar de usar rutas duplicadas o hardcodeadas.
+
 ## [0.4.0] - 2026-03-25
 
 ### Added

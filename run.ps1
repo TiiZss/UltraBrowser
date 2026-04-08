@@ -5,6 +5,40 @@ $ErrorActionPreference = "Continue"
 Set-Location $PSScriptRoot
 
 $uvCmd = "uv"
+$pythonDependencies = @(
+    "pyqt6>=6.10.2",
+    "pyqt6-webengine>=6.10.0",
+    "stem>=1.8.2"
+)
+$pythonDependenciesHint = $pythonDependencies -join " "
+
+function Open-DiagnosticsFolder {
+    param(
+        [string]$PythonRunner,
+        [string[]]$RunnerArgs = @()
+    )
+
+    try {
+        $shouldOpen = & $PythonRunner @RunnerArgs -m ultrabrowser.diagnostics --print-open-on-failure 2>$null
+        if ($LASTEXITCODE -ne 0 -or $shouldOpen.Trim() -ne "1") {
+            return
+        }
+
+        $diagnosticsDir = & $PythonRunner @RunnerArgs -m ultrabrowser.diagnostics --print-log-dir 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            return
+        }
+
+        $diagnosticsDir = $diagnosticsDir.Trim()
+        if ($diagnosticsDir -and (Test-Path $diagnosticsDir)) {
+            Write-Host "[INFO] Abriendo carpeta de diagnostico: $diagnosticsDir" -ForegroundColor Yellow
+            Start-Process explorer.exe $diagnosticsDir
+        }
+    }
+    catch {
+        Write-Host "[ADVERTENCIA] No se pudo abrir la carpeta de diagnostico." -ForegroundColor Yellow
+    }
+}
 
 # Buscar uv en el PATH
 if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
@@ -32,7 +66,7 @@ if (Get-Command $uvCmd -ErrorAction SilentlyContinue) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ADVERTENCIA] uv sync fallo. Intentando crear venv manualmente..." -ForegroundColor Yellow
         & $uvCmd venv
-        & $uvCmd pip install pyqt6 pyqt6-webengine stem
+        & $uvCmd pip install @pythonDependencies
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[ERROR] Fallo al instalar dependencias con uv." -ForegroundColor Red
             Read-Host "Presiona Enter para salir"
@@ -43,6 +77,7 @@ if (Get-Command $uvCmd -ErrorAction SilentlyContinue) {
     Write-Host "[INFO] Ejecutando UltraBrowser..." -ForegroundColor Green
     & $uvCmd run python -m ultrabrowser.main
     if ($LASTEXITCODE -ne 0) {
+        Open-DiagnosticsFolder -PythonRunner $uvCmd -RunnerArgs @("run", "python")
         Write-Host "[ERROR] Fallo al ejecutar UltraBrowser." -ForegroundColor Red
         Read-Host "Presiona Enter para salir"
         exit 1
@@ -101,10 +136,10 @@ else {
     python -m pip install --upgrade pip --quiet
 
     Write-Host "[INFO] Instalando dependencias..." -ForegroundColor Cyan
-    pip install pyqt6 pyqt6-webengine stem --quiet
+    python -m pip install @pythonDependencies --quiet
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Fallo al instalar dependencias." -ForegroundColor Red
-        Write-Host "        Prueba manualmente: pip install pyqt6 pyqt6-webengine stem" -ForegroundColor White
+        Write-Host "        Prueba manualmente: python -m pip install $pythonDependenciesHint" -ForegroundColor White
         Read-Host "Presiona Enter para salir"
         exit 1
     }
@@ -112,6 +147,7 @@ else {
     Write-Host "[INFO] Ejecutando UltraBrowser..." -ForegroundColor Green
     python -m ultrabrowser.main
     if ($LASTEXITCODE -ne 0) {
+        Open-DiagnosticsFolder -PythonRunner "python"
         Write-Host "[ERROR] Error al ejecutar UltraBrowser." -ForegroundColor Red
         Read-Host "Presiona Enter para salir"
         exit 1

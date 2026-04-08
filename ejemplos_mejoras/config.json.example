@@ -18,6 +18,11 @@
   "user_agent_rotation_interval": 30,
   "debug_mode": false,
   "log_file": "logs/ultrabrowser.log",
+  "diagnostics_dir": "logs/diagnostics",
+  "chromium_log_file": "logs/diagnostics/qtwebengine-chromium.log",
+  "fault_log_file": "logs/diagnostics/python-fault.log",
+  "uncaught_exceptions_file": "logs/diagnostics/uncaught-exceptions.log",
+  "open_diagnostics_on_failure": true,
   "window_width": 1200,
   "window_height": 800,
   "show_status_bar": true

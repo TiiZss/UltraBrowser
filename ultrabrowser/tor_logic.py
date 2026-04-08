@@ -5,14 +5,12 @@ Gestión de conexión Tor: Configuración SOCKS5 y comunicación con el proceso 
 from typing import Optional
 from PyQt6.QtNetwork import QNetworkProxy
 from stem.control import Controller
-from stem import Signal
+from stem import Signal, SocketError
 import stem.process
 import socket
-import time
 from pathlib import Path
 import os
 import platform
-import sys
 
 from .exceptions import (
     TorNotRunningError,
@@ -24,6 +22,17 @@ from .logging_config import get_logger
 from .config import get_config, TorConfig
 
 logger = get_logger()
+
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _tor_runtime_dir() -> Path:
+    if platform.system() == "Windows":
+        base_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        return base_dir / "UltraBrowser" / "tor_data"
+    return Path.home() / ".ultrabrowser" / "tor_data"
 
 
 class TorManager:
@@ -75,7 +84,7 @@ class TorManager:
             controller.close()
             logger.debug("Tor está ejecutándose correctamente")
             return True
-        except (ConnectionRefusedError, OSError) as e:
+        except (ConnectionRefusedError, OSError, SocketError) as e:
             logger.warning(f"Tor no disponible en puerto {self.tor_config.control_port}: {e}")
             if self.debug_mode:
                 raise TorNotRunningError(f"Tor no está ejecutándose: {e}") from e
@@ -194,7 +203,7 @@ class TorManager:
             # 2. Autodetectar binario portátil incluido en el proyecto
             if tor_cmd == "tor":
                 system = platform.system()
-                base_path = Path.cwd() / "bin"
+                base_path = _project_root() / "bin"
                 bundled_map = {
                     "Windows": base_path / "windows" / "Tor" / "tor.exe",
                     "Linux":   base_path / "linux"   / "Tor" / "tor",
@@ -209,8 +218,16 @@ class TorManager:
                     logger.info(f"Usando binario Tor portátil ({system}): {tor_cmd}")
 
             # 3. Directorio de datos
-            data_dir = Path.cwd() / "bin" / "tor_data"
+            data_dir = _tor_runtime_dir()
             data_dir.mkdir(parents=True, exist_ok=True)
+
+            lock_file = data_dir / "lock"
+            if lock_file.exists():
+                try:
+                    lock_file.unlink()
+                    logger.warning(f"Lock de Tor obsoleto eliminado: {lock_file}")
+                except OSError as e:
+                    logger.warning(f"No se pudo eliminar el lock de Tor {lock_file}: {e}")
 
             tor_config = {
                 "SocksPort": str(self.tor_config.socks_port),
