@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/releases)
 ![Release Date](https://img.shields.io/github/release-date/TiiZss/UltraBrowser)
 ![Downloads](https://img.shields.io/github/downloads/TiiZss/UltraBrowser/total)
-![Version](https://img.shields.io/badge/version-v0.5.0-brightgreen)
+![Version](https://img.shields.io/badge/version-v0.5.1-brightgreen)
 ![UV](https://img.shields.io/badge/uv-fast-purple)
 ![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)
 
@@ -20,7 +20,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 
 ### 🔒 Privacidad y Seguridad
 - **Modo Tor Nativo**: Interruptor global para enrutar todo el tráfico a través de la red Tor. La conexión se establece en segundo plano sin bloquear la interfaz.
-- **Bloqueador de Anuncios y Rastreadores**: Bloqueo a nivel de red de más de 100 dominios publicitarios y de rastreo conocidos (Google Ads, Doubleclick, Taboola, Facebook Pixel, Hotjar, Criteo...). Las páginas mantienen su funcionalidad completa.
+- **Bloqueador de Anuncios y Rastreadores**: Bloqueo a nivel de red de más de 100 dominios publicitarios y de rastreo conocidos (Google Ads, Doubleclick, Taboola, Criteo, Facebook Pixel, Hotjar...). Las páginas mantienen su funcionalidad completa.
 - **Perfil Off-the-record Real**: Sin historial, sin caché en disco, sin cookies persistentes. Nada se escribe en disco durante la sesión.
 - **Anti-Fingerprinting**:
   - Rotación automática de User-Agent cada 30 minutos (configurable).
@@ -29,6 +29,11 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Gestión de Hardware**: Toggles para habilitar/deshabilitar cámara y micrófono. Bloqueo estricto por defecto.
 - **Forzado HTTPS**: Redirección automática de HTTP a HTTPS con protección anti-loop.
 - **Diagnóstico Persistente**: Logs de crash de Python y Chromium fuera del repositorio, con acceso directo desde la UI y apertura automática en Windows cuando el arranque falla.
+
+### 🛡️ Estabilidad y Robustez
+- **Protección contra crashes en arranque**: Captura de errores catastróficos en la función principal con registro a stderr y logs de diagnóstico.
+- **Codificación UTF-8 forzada**: `stdout` y `stderr` se reconfiguran a UTF-8 al inicio, evitando `UnicodeEncodeError` en consolas Windows con codepage `cp1252`.
+- **Faulthandler activo**: Volcados de pila ante segfaults y señales fatales se escriben en `python-fault.log` para diagnóstico post-mortem.
 
 ### 🚀 Stack Tecnológico
 - **Core**: Python 3.12+

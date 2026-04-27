@@ -67,28 +67,54 @@ def _enable_fault_diagnostics(fault_log_path: Path) -> Path:
     except Exception:
         pass
     return fault_log_path
+
+
 def main():
     """Función principal de la aplicación"""
+    # Forzar UTF-8 en stdout/stderr para evitar UnicodeEncodeError en Windows
+    # (cp1252 no soporta muchos caracteres Unicode usados en logs)
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass  # Si falla la reconfiguración, continuamos igualmente
+
+    try:
+        return _main_inner()
+    except Exception as e:
+        # Captura de último recurso para errores catastróficos no controlados
+        try:
+            print(f"[FATAL] Error catastrofico al iniciar UltraBrowser: {e}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+        except Exception:
+            pass
+        return 1
+
+
+def _main_inner():
+    """Lógica principal separada para facilitar la captura de errores catastróficos."""
     # Intentar cargar configuración desde archivo
     config_path = _project_root() / "config" / "config.json"
     try:
         config = BrowserConfig.from_file(config_path)
-        print(f"✓ Configuración cargada desde {config_path}")
+        print(f"[OK] Configuracion cargada desde {config_path}")
     except (ConfigFileNotFoundError, ConfigFileInvalidError) as e:
-        print(f"⚠ Usando configuración por defecto: {e}")
+        print(f"[WARN] Usando configuracion por defecto: {e}")
         config = BrowserConfig()
 
     diagnostics_paths = get_diagnostics_paths(config, _project_root())
     fault_log_path = _enable_fault_diagnostics(diagnostics_paths["fault_log"])
     _prepare_qt_environment(diagnostics_paths["chromium_log"])
-    
+
     # Configurar logging
     logger = setup_logging(
         debug_mode=config.debug_mode,
         log_file=config.log_file if config.log_file else None
     )
     set_logger(logger)
-    
+
     logger.info("=" * 60)
     logger.info("Iniciando UltraBrowser by TiiZss")
     logger.info("=" * 60)
@@ -98,7 +124,7 @@ def main():
 
     if sys.platform.startswith("win") and os.environ.get("QT_OPENGL") == "software":
         logger.info("Qt configurado para renderizado por software en Windows")
-    
+
     # Establecer configuración global
     set_config(config)
 
@@ -122,24 +148,24 @@ def main():
     sys.excepthook = _handle_uncaught_exception
 
     from .browser_engine import BrowserWindow
-    
+
     # Crear aplicación Qt
     app = QApplication(sys.argv)
     app.setApplicationName("UltraBrowser")
     app.setOrganizationName("Navigator")
-    
+
     try:
         # Crear y mostrar ventana principal
         window = BrowserWindow()
         window.show()
-        
+
         logger.info("Ventana principal mostrada")
-        
+
         # Ejecutar aplicación
         exit_code = app.exec()
         logger.info(f"Aplicación finalizada con código: {exit_code}")
         return exit_code
-        
+
     except Exception as e:
         logger.critical(f"Error crítico al iniciar la aplicación: {e}", exc_info=True)
         return 1
@@ -147,6 +173,7 @@ def main():
         logger.info("=" * 60)
         logger.info("UltraBrowser finalizado")
         logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     sys.exit(main())

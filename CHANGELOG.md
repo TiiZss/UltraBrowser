@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-04-27
+
+### Fixed
+- **Crash al arrancar en Windows (`UnicodeEncodeError`)**: Los caracteres Unicode `✓` y `⚠` en los `print()` iniciales de `main.py` causaban un crash fatal en consolas Windows con codepage `cp1252`. Sustituidos por alternativas ASCII seguras (`[OK]`, `[WARN]`).
+- **Codificación UTF-8 forzada en stdout/stderr**: `sys.stdout` y `sys.stderr` ahora se reconfiguran a `encoding='utf-8'` con `errors='replace'` al inicio de `main()`, previniendo futuros `UnicodeEncodeError` en cualquier salida por consola.
+
+### Added
+- **Captura de errores catastróficos**: La función `main()` ahora envuelve toda la lógica en un `try/except` de último recurso (`_main_inner()`). Cualquier excepción no controlada se imprime en stderr con traceback completo en lugar de producir un cierre silencioso.
+
+### Changed
+- **Limpieza PEP 8**: Corregidos problemas de formato en `main.py` — trailing whitespace en líneas vacías y líneas en blanco faltantes entre definiciones de nivel superior.
+
 ## [0.5.0] - 2026-04-08
 
 ### Added
