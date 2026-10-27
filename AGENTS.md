@@ -22,3 +22,15 @@ The app requires a display server (X11). On Cloud VMs, use the existing display 
 - **Tor is optional**: The Tor toggle feature requires a Tor binary (bundled in `bin/linux/Tor/tor` or system-installed). The browser works fully without Tor in normal mode.
 - **Config files**: Runtime config is in `config/config.json`; user-agents for anti-fingerprinting are in `config/user_agents.json`.
 - **Entry point**: `ultrabrowser.main:main` (defined in `pyproject.toml` under `[project.scripts]`).
+
+### Workflow decisions
+
+`AGENTS.md` is the agent map for this repo. `CLAUDE.md` only points here. The 2026-10-27 audit of extra workflow rules is in `decisions.md`. Follow that file.
+
+- Python dependencies go through `uv`. Keep the working tree in UTF-8.
+- Leave working behavior in place unless the requested change requires the edit.
+- One feature per branch (`cursor/<description>-1332` in this environment). Commit on that branch before a wide edit. That commit is the backup.
+- Write a non-trivial plan into `decisions.md` or `docs/` before coding it.
+- Do not add a Gitea remote, flip the GitHub repo to private, merge to `main`, cut a release, or install Graft, Caveman, Napkin, or diagram tooling unless a later decision records that the missing access and the scope are settled.
+- Context7 is the docs MCP when a library question needs current docs. Verify this PyQt app on the display server. Playwright does not drive it.
+- Do not import skills from `D:\Scripts\...`. Those directories are not on this machine.
