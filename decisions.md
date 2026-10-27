@@ -10,8 +10,9 @@ Auditoría de las instrucciones nuevas frente a este repositorio. Hechos comprob
 - No hay GitHub Actions (cero workflows) ni remoto de Gitea configurado. El único remoto de trabajo es `origin` hacia GitHub.
 - Es un navegador de escritorio en Python 3.12 y PyQt6, un solo proceso, sin frontend web. El entorno se gestiona con `uv`. La codificación de trabajo ya es UTF-8.
 - El mapa del agente en Cursor es `AGENTS.md`. No hace falta un segundo manual con el mismo contenido.
-- `gitea.tiizss.internal` no resuelve desde este entorno. `gitea.tiizss.com` resuelve, responde HTTP 301 y HTTPS con un certificado cuyo nombre no coincide con el host. No hay credencial de Gitea disponible aquí.
-- `D:\Scripts\Z-externos\ECC` y `D:\Scripts\Z-externos\Anthropic-Cybersecurity-Skills` no existen en esta máquina.
+- Esta sesión corre en la nube, no en Almansa4. Lo que solo vive en ese equipo no se puede leer desde aquí.
+- `gitea.tiizss.internal` no resuelve fuera de esa red. `gitea.tiizss.com` sí responde desde la nube: HTTP 301 y HTTPS con un certificado cuyo nombre no coincide con el host. No hay credencial de Gitea en esta sesión. Estar fuera de Almansa4 explica el fallo del nombre interno; no arregla el certificado ni aporta acceso.
+- `D:\Scripts\Z-externos\ECC` y `D:\Scripts\Z-externos\Anthropic-Cybersecurity-Skills` son rutas de Almansa4. Aquí no están montadas. Esas skills siguen siendo válidas en ese equipo. Desde la nube no se revisan ni se copian de memoria.
 - MCP conectados aquí: Context7, Telegram, Outlook, Gmail, Google Calendar, cursor-cloud y cursor-subscriptions. No están GitHub MCP, Playwright, Filesystem MCP, markitdown ni Sentry. GitHub se usa con `gh` y git. Los ficheros se leen con las herramientas del entorno.
 - El paquete del índice de código (Graft, ahora Trail-code) no está instalado. El árbol Python es pequeño.
 - `docs.md` describe módulos en la raíz que hoy viven en `ultrabrowser/`. Esa deriva queda anotada y no se reescribe en esta decisión.
@@ -41,7 +42,7 @@ Auditoría de las instrucciones nuevas frente a este repositorio. Hechos comprob
 - Fusionar a `main` y borrar ramas al terminar cada tarea. Sin CI, "en verde" no significa nada. Un merge se hace cuando se pida para ese cambio concreto.
 - Exigir panel de problemas, kanban, architecture, troubleshooting, fichero graft, tag y release después de cada PR.
 - Instalar Graft/Trail-code, Caveman, Napkin, Diagram Design o el humanizador como dependencia permanente. Caveman además choca con respuestas en español claro y completo. Napkin duplica este registro. Diagramas solo si se piden. Graft se reconsidera si el código crece bastante.
-- Importar skills desde `D:\Scripts\...`. Esas carpetas no están aquí.
+- Importar skills desde `D:\Scripts\...` en esta sesión. Esas carpetas están en Almansa4 y aquí no se ven. En Almansa4 se mira la skill que pida la tarea, no el directorio entero por defecto.
 - Tratar como obligatorios Playwright, Sentry, markitdown, Filesystem MCP o un MCP de GitHub que no está conectado.
 - Aplicar skills de diseño web (Impeccable, Frontend Design, UI UX Pro Max, Theme Factory, reglas visuales de Vercel). No hay interfaz web.
 - Copia de seguridad en paralelo al historial de git.

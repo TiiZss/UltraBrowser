@@ -33,4 +33,4 @@ The app requires a display server (X11). On Cloud VMs, use the existing display 
 - Write a non-trivial plan into `decisions.md` or `docs/` before coding it.
 - Do not add a Gitea remote, flip the GitHub repo to private, merge to `main`, cut a release, or install Graft, Caveman, Napkin, or diagram tooling unless a later decision records that the missing access and the scope are settled.
 - Context7 is the docs MCP when a library question needs current docs. Verify this PyQt app on the display server. Playwright does not drive it.
-- Do not import skills from `D:\Scripts\...`. Those directories are not on this machine.
+- This cloud session is not Almansa4. Do not import skills from `D:\Scripts\...` here; those directories live on Almansa4 and are not mounted. On Almansa4, read the skill a task actually needs.
