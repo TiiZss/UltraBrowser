@@ -18,24 +18,39 @@ import random
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QLineEdit,
     QPushButton, QToolBar, QStatusBar, QProgressBar, QApplication,
-    QTabWidget, QToolButton
+    QTabWidget, QToolButton, QDockWidget, QListWidget, QListWidgetItem,
+    QLabel, QFileDialog, QVBoxLayout
 )
-from PyQt6.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer, QStandardPaths, QEvent
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent, QDesktopServices
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import (
     QWebEngineSettings, QWebEngineProfile, QWebEnginePage,
-    QWebEngineFullScreenRequest, QWebEngineScript
+    QWebEngineFullScreenRequest, QWebEngineScript, QWebEngineDownloadRequest
 )
 from PyQt6.QtNetwork import QNetworkProxy
 
 from .tor_logic import TorManager
 from .ad_blocker import AdBlocker
+from .bookmarks import BookmarkStore, bookmarks_path
 from .logging_config import get_logger
 from .config import get_config, load_user_agents
 from .diagnostics import get_diagnostics_paths
 
 logger = get_logger()
+
+_CLOSED_TAB_LIMIT = 10
+_ZOOM_MIN = 0.25
+_ZOOM_MAX = 3.0
+_ZOOM_STEP = 0.25
+
+
+def _safe_download_name(suggested: str) -> str:
+    """Deja solo el nombre de fichero, sin ruta."""
+    name = os.path.basename((suggested or "").replace("\\", "/")).strip().rstrip(".")
+    if not name or name in {".", ".."}:
+        return "descarga"
+    return name
 
 
 # ---------------------------------------------------------------------------
@@ -567,15 +582,20 @@ class BrowserWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self.progress_bar)
 
         self.setup_shortcuts()
+        self._closed_tabs: list[tuple[QUrl, str]] = []
+        self._create_find_bar()
+        self._create_downloads_dock()
+        self._create_bookmarks_dock()
+        self.browser_profile.downloadRequested.connect(self._on_download_requested)
 
         # ------------------------------------------------------------------
         # TIMER DE ROTACIÓN AUTOMÁTICA DE USER-AGENT
         # ------------------------------------------------------------------
         if config.rotate_user_agent and config.user_agent_rotation_interval > 0:
-            interval_ms = config.user_agent_rotation_interval * 60 * 1000
+            self._ua_interval_ms = config.user_agent_rotation_interval * 60 * 1000
             self._ua_timer = QTimer(self)
             self._ua_timer.timeout.connect(self._rotate_user_agent)
-            self._ua_timer.start(interval_ms)
+            self._ua_timer.start(self._ua_interval_ms)
             logger.info(
                 f"Rotación de User-Agent cada {config.user_agent_rotation_interval} minutos"
             )
@@ -599,10 +619,27 @@ class BrowserWindow(QMainWindow):
         ]
 
     def _rotate_user_agent(self) -> None:
-        """Rota el User-Agent del perfil compartido (afecta a todas las pestañas)"""
+        """Rota el User-Agent del perfil compartido (afecta a todas las pestañas)."""
+        if self.tor_manager.tor_enabled:
+            return
         new_ua = random.choice(self.user_agents)
         self.browser_profile.setHttpUserAgent(new_ua)
         logger.debug(f"User-Agent rotado automáticamente: {new_ua[:60]}...")
+
+    def _pause_user_agent_rotation(self) -> None:
+        """Tor encendido: el agente deja de cambiar durante la sesión anónima."""
+        timer = getattr(self, "_ua_timer", None)
+        if timer is not None and timer.isActive():
+            timer.stop()
+            logger.info("Rotación de User-Agent pausada mientras Tor está activo")
+
+    def _resume_user_agent_rotation(self) -> None:
+        """Tor apagado o conexión fallida: vuelve el intervalo configurado."""
+        timer = getattr(self, "_ua_timer", None)
+        if timer is None or timer.isActive() or self.tor_manager.tor_enabled:
+            return
+        timer.start(self._ua_interval_ms)
+        logger.info("Rotación de User-Agent reanudada")
 
     def current_browser(self) -> Optional[BrowserEngine]:
         """Retorna el BrowserEngine de la pestaña activa"""
@@ -633,6 +670,9 @@ class BrowserWindow(QMainWindow):
         browser.loadFinished.connect(lambda s: self.on_load_finished(s, browser))
         browser.urlChanged.connect(lambda u: self.update_url_bar(u, browser))
         browser.titleChanged.connect(lambda t: self.update_tab_title(t, browser))
+        browser.page().findTextFinished.connect(
+            lambda result, b=browser: self._on_find_finished(result, b)
+        )
 
         index = self.tabs.addTab(browser, label)
         self.tabs.setCurrentIndex(index)
@@ -643,6 +683,8 @@ class BrowserWindow(QMainWindow):
         if self.tabs.count() < 2:
             return
         widget = self.tabs.widget(index)
+        if isinstance(widget, BrowserEngine):
+            self._remember_closed_tab(widget)
         if widget:
             widget.deleteLater()
         self.tabs.removeTab(index)
@@ -654,6 +696,8 @@ class BrowserWindow(QMainWindow):
         if isinstance(browser, BrowserEngine):
             self.update_url_bar(browser.url(), browser)
             self.update_title(browser.title())
+            if self.find_bar.isVisible():
+                self._find_in_page()
 
     def update_tab_title(self, title: str, browser: BrowserEngine) -> None:
         """Actualiza el texto de la pestaña (truncado) y el tooltip completo"""
@@ -800,6 +844,46 @@ class BrowserWindow(QMainWindow):
 
     def create_menus(self) -> None:
         """Crea el menu superior con accesos a acciones frecuentes."""
+        view_menu = self.menuBar().addMenu("Ver")
+
+        self.find_action = QAction("Buscar en la página", self)
+        self.find_action.setShortcut(QKeySequence.StandardKey.Find)
+        self.find_action.triggered.connect(self._show_find_bar)
+        view_menu.addAction(self.find_action)
+
+        self.zoom_in_action = QAction("Acercar", self)
+        self.zoom_in_action.setShortcut(QKeySequence.StandardKey.ZoomIn)
+        self.zoom_in_action.triggered.connect(lambda: self._change_zoom(_ZOOM_STEP))
+        view_menu.addAction(self.zoom_in_action)
+
+        self.zoom_out_action = QAction("Alejar", self)
+        self.zoom_out_action.setShortcut(QKeySequence.StandardKey.ZoomOut)
+        self.zoom_out_action.triggered.connect(lambda: self._change_zoom(-_ZOOM_STEP))
+        view_menu.addAction(self.zoom_out_action)
+
+        self.zoom_reset_action = QAction("Zoom 100%", self)
+        self.zoom_reset_action.setShortcut(QKeySequence("Ctrl+0"))
+        self.zoom_reset_action.triggered.connect(lambda: self._change_zoom(None))
+        view_menu.addAction(self.zoom_reset_action)
+
+        self.downloads_action = QAction("Descargas", self)
+        self.downloads_action.triggered.connect(self._toggle_downloads)
+        view_menu.addAction(self.downloads_action)
+
+        self.reopen_tab_action = QAction("Reabrir pestaña cerrada", self)
+        self.reopen_tab_action.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        self.reopen_tab_action.triggered.connect(self.reopen_closed_tab)
+        view_menu.addAction(self.reopen_tab_action)
+
+        bookmarks_menu = self.menuBar().addMenu("Marcadores")
+        self.add_bookmark_action = QAction("Añadir esta página", self)
+        self.add_bookmark_action.setShortcut(QKeySequence("Ctrl+D"))
+        self.add_bookmark_action.triggered.connect(self._add_current_bookmark)
+        bookmarks_menu.addAction(self.add_bookmark_action)
+        self.show_bookmarks_action = QAction("Mostrar marcadores", self)
+        self.show_bookmarks_action.triggered.connect(self._toggle_bookmarks)
+        bookmarks_menu.addAction(self.show_bookmarks_action)
+
         tools_menu = self.menuBar().addMenu("Herramientas")
         tools_menu.addAction(self.diagnostics_action)
         tools_menu.addAction(self.clear_action)
@@ -819,6 +903,245 @@ class BrowserWindow(QMainWindow):
         self.addAction(close_tab)
 
         self.addAction(self.diagnostics_action)
+
+        zoom_in_alt = QAction(self)
+        zoom_in_alt.setShortcut(QKeySequence("Ctrl+="))
+        zoom_in_alt.triggered.connect(lambda: self._change_zoom(_ZOOM_STEP))
+        self.addAction(zoom_in_alt)
+
+    def _create_find_bar(self) -> None:
+        """Barra inferior de búsqueda en la página. Empieza oculta."""
+        self.find_bar = QToolBar("Buscar")
+        self.find_bar.setMovable(False)
+        self.find_input = QLineEdit()
+        self.find_input.setPlaceholderText("Buscar en la página")
+        self.find_input.setClearButtonEnabled(True)
+        self.find_input.textChanged.connect(self._find_in_page)
+        self.find_input.returnPressed.connect(self._find_in_page)
+        self.find_count = QLabel("")
+        previous_button = QPushButton("Anterior")
+        next_button = QPushButton("Siguiente")
+        close_button = QPushButton("Cerrar")
+        previous_button.clicked.connect(lambda: self._find_in_page(backward=True))
+        next_button.clicked.connect(lambda: self._find_in_page())
+        close_button.clicked.connect(self._hide_find_bar)
+        self.find_input.installEventFilter(self)
+        self.find_bar.addWidget(self.find_input)
+        self.find_bar.addWidget(previous_button)
+        self.find_bar.addWidget(next_button)
+        self.find_bar.addWidget(self.find_count)
+        self.find_bar.addWidget(close_button)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.find_bar)
+        self.find_bar.hide()
+
+    def _create_downloads_dock(self) -> None:
+        """Lista de descargas de esta sesión. No se escribe en disco."""
+        self.downloads_list = QListWidget()
+        self.downloads_dock = QDockWidget("Descargas", self)
+        self.downloads_dock.setWidget(self.downloads_list)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.downloads_dock)
+        self.downloads_dock.hide()
+
+    def _create_bookmarks_dock(self) -> None:
+        """Lista de marcadores leída del fichero de runtime, no del perfil web."""
+        self._bookmark_store = BookmarkStore(bookmarks_path())
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(4, 4, 4, 4)
+        self.bookmarks_list = QListWidget()
+        self.bookmarks_list.itemDoubleClicked.connect(self._open_bookmark)
+        remove_button = QPushButton("Quitar")
+        remove_button.clicked.connect(self._remove_selected_bookmark)
+        layout.addWidget(self.bookmarks_list)
+        layout.addWidget(remove_button)
+        self.bookmarks_dock = QDockWidget("Marcadores", self)
+        self.bookmarks_dock.setWidget(panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.bookmarks_dock)
+        self.bookmarks_dock.hide()
+        self._refresh_bookmarks_list()
+        if self._bookmark_store.unreadable:
+            logger.warning("Marcadores ilegibles. Se conservará una copia .bak al guardar el primero válido.")
+
+    def _refresh_bookmarks_list(self) -> None:
+        self.bookmarks_list.clear()
+        for title, url in self._bookmark_store.items:
+            item = QListWidgetItem(title)
+            item.setToolTip(url)
+            item.setData(Qt.ItemDataRole.UserRole, url)
+            self.bookmarks_list.addItem(item)
+
+    def _toggle_bookmarks(self) -> None:
+        self.bookmarks_dock.setVisible(not self.bookmarks_dock.isVisible())
+
+    def _add_current_bookmark(self) -> None:
+        browser = self.current_browser()
+        if browser is None:
+            return
+        result = self._bookmark_store.add(browser.url().toString(), browser.title())
+        if result == "rejected":
+            self.status_bar.showMessage("Solo se pueden marcar páginas http o https", 3000)
+            return
+        self._refresh_bookmarks_list()
+        self.bookmarks_dock.show()
+        if result == "updated":
+            self.status_bar.showMessage("Marcador actualizado", 2000)
+            logger.info("Marcador actualizado")
+            return
+        self.status_bar.showMessage("Marcador guardado", 2000)
+        logger.info("Marcador guardado")
+
+    def _open_bookmark(self, item: QListWidgetItem) -> None:
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(url, str):
+            return
+        self.add_new_tab(QUrl(url), label=item.text() or "Marcador")
+
+    def _remove_selected_bookmark(self) -> None:
+        item = self.bookmarks_list.currentItem()
+        if item is None:
+            return
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(url, str):
+            return
+        if self._bookmark_store.remove(url):
+            self._refresh_bookmarks_list()
+            self.status_bar.showMessage("Marcador quitado", 2000)
+            logger.info("Marcador quitado")
+
+    def eventFilter(self, watched, event) -> bool:
+        if (
+            watched is getattr(self, "find_input", None)
+            and event.type() == QEvent.Type.KeyPress
+            and event.key() == Qt.Key.Key_Escape
+        ):
+            self._hide_find_bar()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _show_find_bar(self) -> None:
+        self.find_bar.show()
+        self.find_input.setFocus()
+        self.find_input.selectAll()
+        self._find_in_page()
+
+    def _hide_find_bar(self) -> None:
+        self.find_bar.hide()
+        self.find_count.setText("")
+        browser = self.current_browser()
+        if browser is not None:
+            browser.findText("")
+
+    def _find_in_page(self, _text: str = "", *, backward: bool = False) -> None:
+        """Busca el texto de la barra en la pestaña activa."""
+        browser = self.current_browser()
+        if browser is None or not hasattr(self, "find_input"):
+            return
+        text = self.find_input.text()
+        if backward and text:
+            browser.findText(text, QWebEnginePage.FindFlag.FindBackward)
+        else:
+            browser.findText(text)
+
+    def _on_find_finished(self, result, browser: BrowserEngine) -> None:
+        if browser != self.current_browser() or not self.find_bar.isVisible():
+            return
+        if not self.find_input.text():
+            self.find_count.setText("")
+            return
+        total = result.numberOfMatches()
+        if total == 0:
+            self.find_count.setText("Sin resultados")
+            return
+        self.find_count.setText(f"{result.activeMatch()} de {total}")
+
+    def _change_zoom(self, delta: Optional[float]) -> None:
+        """Ajusta el zoom de la pestaña activa. None lo devuelve al 100%."""
+        browser = self.current_browser()
+        if browser is None:
+            return
+        if delta is None:
+            factor = 1.0
+        else:
+            factor = min(_ZOOM_MAX, max(_ZOOM_MIN, browser.zoomFactor() + delta))
+        browser.setZoomFactor(factor)
+        self.status_bar.showMessage(f"Zoom {round(factor * 100)}%", 2000)
+
+    def _toggle_downloads(self) -> None:
+        self.downloads_dock.setVisible(not self.downloads_dock.isVisible())
+
+    def _on_download_requested(self, download: QWebEngineDownloadRequest) -> None:
+        """Pide una ruta y muestra la descarga en el panel de la sesión."""
+        suggested = _safe_download_name(download.suggestedFileName())
+        downloads_dir = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DownloadLocation
+        )
+        initial = os.path.join(downloads_dir, suggested) if downloads_dir else suggested
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self, "Guardar descarga", initial
+        )
+        if not path:
+            download.cancel()
+            return
+
+        directory, filename = os.path.split(path)
+        download.setDownloadDirectory(directory)
+        download.setDownloadFileName(_safe_download_name(filename))
+        download.accept()
+
+        item = QListWidgetItem(f"{download.downloadFileName()} — en curso")
+        self.downloads_list.addItem(item)
+        self.downloads_dock.show()
+        download.receivedBytesChanged.connect(
+            lambda d=download, row=item: self._refresh_download_item(d, row)
+        )
+        download.stateChanged.connect(
+            lambda _state, d=download, row=item: self._refresh_download_item(d, row)
+        )
+        logger.info("Descarga aceptada: %s", download.downloadFileName())
+
+    def _refresh_download_item(
+        self, download: QWebEngineDownloadRequest, item: QListWidgetItem
+    ) -> None:
+        labels = {
+            QWebEngineDownloadRequest.DownloadState.DownloadRequested: "en espera",
+            QWebEngineDownloadRequest.DownloadState.DownloadInProgress: "en curso",
+            QWebEngineDownloadRequest.DownloadState.DownloadCompleted: "completada",
+            QWebEngineDownloadRequest.DownloadState.DownloadCancelled: "cancelada",
+            QWebEngineDownloadRequest.DownloadState.DownloadInterrupted: "interrumpida",
+        }
+        name = download.downloadFileName() or _safe_download_name(download.suggestedFileName())
+        label = labels.get(download.state(), "en curso")
+        total = download.totalBytes()
+        received = download.receivedBytes()
+        if (
+            download.state() == QWebEngineDownloadRequest.DownloadState.DownloadInProgress
+            and total > 0
+        ):
+            item.setText(f"{name} — {label} ({int(received * 100 / total)}%)")
+        else:
+            item.setText(f"{name} — {label}")
+        if download.state() == QWebEngineDownloadRequest.DownloadState.DownloadInterrupted:
+            reason = download.interruptReasonString()
+            if reason:
+                item.setText(f"{item.text()} ({reason})")
+
+    def _remember_closed_tab(self, browser: BrowserEngine) -> None:
+        """Guarda la URL en memoria para Ctrl+Shift+T. No toca el disco."""
+        url = QUrl(browser.url())
+        if url.scheme().lower() not in {"http", "https", "file"}:
+            return
+        title = browser.title().strip() or url.toString()
+        self._closed_tabs.append((url, title))
+        if len(self._closed_tabs) > _CLOSED_TAB_LIMIT:
+            del self._closed_tabs[0]
+
+    def reopen_closed_tab(self) -> None:
+        """Reabre la última pestaña cerrada en esta sesión."""
+        if not self._closed_tabs:
+            self.status_bar.showMessage("No hay pestañas cerradas en esta sesión", 2000)
+            return
+        url, title = self._closed_tabs.pop()
+        self.add_new_tab(url, label=title or "Nueva Pestaña")
 
     # ------------------------------------------------------------------
     # Eventos de carga de página
@@ -970,6 +1293,7 @@ class BrowserWindow(QMainWindow):
     def toggle_tor(self, checked: bool) -> None:
         """Activa/desactiva Tor. La conexión se realiza en un hilo separado."""
         if checked:
+            self._pause_user_agent_rotation()
             # Estado visual: conectando
             self.tor_toggle.setStyleSheet(
                 "QPushButton:checked{background:#d35400;color:#fff}"
@@ -995,6 +1319,7 @@ class BrowserWindow(QMainWindow):
                     "QPushButton:!checked{background:#757575;color:#fff}"
                 )
                 self.status_bar.showMessage("Tor desactivado", 3000)
+                self._resume_user_agent_rotation()
                 if self.current_browser():
                     self.current_browser().reload()
 
@@ -1025,6 +1350,7 @@ class BrowserWindow(QMainWindow):
         self.tor_toggle.setText("🔒 Tor: OFF")
         self.tor_toggle.setEnabled(True)
         self.status_bar.showMessage("Error: No se pudo conectar a Tor", 6000)
+        self._resume_user_agent_rotation()
         logger.error("Fallo al conectar a Tor")
 
     def new_tor_identity(self) -> None:
@@ -1068,6 +1394,7 @@ class BrowserWindow(QMainWindow):
 
         # Resetear contador del ad blocker
         self.ad_blocker.reset_count()
+        self._closed_tabs.clear()
 
         # Resetear toggles de hardware
         self.camera_toggle.setChecked(False)

@@ -1,13 +1,15 @@
 # Mejoras Implementadas - UltraBrowser
 
-## ✅ Resumen
+Estas notas describen el trabajo de marzo de 2026. La descripción vigente del programa está en [readme.md](readme.md) y el historial de versiones en [CHANGELOG.md](CHANGELOG.md). `MEJORAS_PROPUESTAS.md` ya no está en el repositorio.
 
-Se han implementado todas las mejoras de seguridad y usabilidad propuestas en `MEJORAS_PROPUESTAS.md`. El proyecto ahora cuenta con:
+## Resumen
+
+En aquel corte el proyecto quedó con:
 
 - ✅ Sistema de logging profesional
 - ✅ Manejo de errores robusto con excepciones personalizadas
 - ✅ Configuración centralizada mediante archivos JSON
-- ✅ Type hints completos en todo el código
+- Anotaciones de tipo en los módulos nuevos de aquel corte, no en cada función del repositorio
 - ✅ Mejoras de seguridad adicionales
 - ✅ Mejoras de usabilidad (indicadores visuales, atajos de teclado, etc.)
 

@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/releases)
 ![Release Date](https://img.shields.io/github/release-date/TiiZss/UltraBrowser)
 ![Downloads](https://img.shields.io/github/downloads/TiiZss/UltraBrowser/total)
-![Version](https://img.shields.io/badge/version-v0.5.1-brightgreen)
+![Version](https://img.shields.io/badge/version-v0.6.0-brightgreen)
 ![UV](https://img.shields.io/badge/uv-fast-purple)
 ![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)
 
@@ -23,7 +23,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Bloqueador de Anuncios y Rastreadores**: Bloqueo a nivel de red de más de 100 dominios publicitarios y de rastreo conocidos (Google Ads, Doubleclick, Taboola, Criteo, Facebook Pixel, Hotjar...). Las páginas mantienen su funcionalidad completa.
 - **Perfil Off-the-record Real**: Sin historial, sin caché en disco, sin cookies persistentes. Nada se escribe en disco durante la sesión.
 - **Anti-Fingerprinting**:
-  - Rotación automática de User-Agent cada 30 minutos (configurable).
+  - Rotación automática de User-Agent cada 30 minutos (configurable). Se pausa al encender Tor y vuelve al apagarlo o si la conexión falla.
   - Script inyectado en cada página que enmascara WebGL, deshabilita la Battery API y estandariza parámetros de hardware.
   - Bloqueo de WebRTC para prevenir fugas de IP local.
 - **Gestión de Hardware**: Toggles para habilitar/deshabilitar cámara y micrófono. Bloqueo estricto por defecto.
@@ -49,6 +49,11 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Limpieza Rápida**: Botón para borrar caché, cookies y datos de sesión de todas las pestañas de una sola vez (`Ctrl+Shift+Del`).
 - **Nueva Identidad Tor**: Solicita un nuevo circuito Tor (nueva IP) sin necesidad de desconectar.
 - **Búsqueda Integrada**: Las búsquedas desde la barra de direcciones van a DuckDuckGo automáticamente.
+- **Búsqueda en la página**: `Ctrl+F` abre la barra de búsqueda de la pestaña activa. Escape la cierra.
+- **Zoom de la pestaña**: acercar, alejar y volver al 100% desde el menú `Ver`, o con `Ctrl++`, `Ctrl+-` y `Ctrl+0`. No se guarda entre sesiones.
+- **Descargas**: al descargar un archivo se pregunta dónde guardarlo y el progreso queda en el panel `Descargas` mientras la ventana sigue abierta.
+- **Reabrir pestaña**: `Ctrl+Shift+T` recupera la última pestaña cerrada, hasta 10, solo en memoria.
+- **Marcadores**: `Ctrl+D` guarda la página actual en un fichero local, fuera del perfil de navegación. El panel `Marcadores` los abre en una pestaña nueva. Limpiar la sesión no los borra.
 - **Herramientas de Diagnóstico**: Carpeta de logs accesible desde el toolbar, el menú `Herramientas` o el atajo `Ctrl+Alt+D`.
 
 ## Instalación y Ejecución
@@ -110,7 +115,8 @@ UltraBrowser/
 │   ├── config.py          # Sistema de configuración
 │   ├── diagnostics.py     # Resolución de rutas y utilidades de diagnóstico
 │   ├── exceptions.py      # Excepciones personalizadas
-│   └── logging_config.py  # Sistema de logging
+│   ├── logging_config.py  # Sistema de logging
+│   └── bookmarks.py       # Marcadores en el directorio de runtime
 ├── config/
 │   ├── config.json        # Configuración principal
 │   └── user_agents.json   # Lista de User-Agents para rotación
@@ -133,6 +139,12 @@ UltraBrowser/
 | `Ctrl+L` | Foco en la barra de direcciones |
 | `Ctrl+Shift+Del` | Limpiar todos los datos |
 | `Ctrl+Alt+D` | Abrir carpeta de diagnóstico |
+| `Ctrl+F` | Buscar en la página |
+| `Ctrl++` / `Ctrl+=` | Acercar la pestaña |
+| `Ctrl+-` | Alejar la pestaña |
+| `Ctrl+0` | Zoom al 100% |
+| `Ctrl+Shift+T` | Reabrir la última pestaña cerrada |
+| `Ctrl+D` | Guardar la página en marcadores |
 | `F5` | Recargar página |
 | `Alt+←` | Atrás |
 | `Alt+→` | Adelante |
