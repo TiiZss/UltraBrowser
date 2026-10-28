@@ -40,4 +40,4 @@ El doble clic abre el modo diario, rápido y sin Tor. Tor se enciende solo con e
 
 Eso ya es el arranque actual. `tor_toggle` nace desmarcado y `launch_tor` no se llama al crear la ventana.
 
-El corte de usabilidad de sesión está en `docs/plans/usabilidad-sesion.md`. Los marcadores locales están en `docs/plans/marcadores.md`. Siguen pendientes el modo Tor sin rotación de User-Agent, el instalador y la actualización del motor.
+El corte de usabilidad de sesión está en `docs/plans/usabilidad-sesion.md`. Los marcadores locales están en `docs/plans/marcadores.md`. La rotación de User-Agent se pausa con Tor (`docs/plans/tor-sin-rotacion-ua.md`). Siguen pendientes aislar la sesión diaria al entrar en Tor, el instalador y la actualización del motor.

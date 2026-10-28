@@ -23,7 +23,7 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Bloqueador de Anuncios y Rastreadores**: Bloqueo a nivel de red de más de 100 dominios publicitarios y de rastreo conocidos (Google Ads, Doubleclick, Taboola, Criteo, Facebook Pixel, Hotjar...). Las páginas mantienen su funcionalidad completa.
 - **Perfil Off-the-record Real**: Sin historial, sin caché en disco, sin cookies persistentes. Nada se escribe en disco durante la sesión.
 - **Anti-Fingerprinting**:
-  - Rotación automática de User-Agent cada 30 minutos (configurable).
+  - Rotación automática de User-Agent cada 30 minutos (configurable). Se pausa al encender Tor y vuelve al apagarlo o si la conexión falla.
   - Script inyectado en cada página que enmascara WebGL, deshabilita la Battery API y estandariza parámetros de hardware.
   - Bloqueo de WebRTC para prevenir fugas de IP local.
 - **Gestión de Hardware**: Toggles para habilitar/deshabilitar cámara y micrófono. Bloqueo estricto por defecto.

@@ -592,10 +592,10 @@ class BrowserWindow(QMainWindow):
         # TIMER DE ROTACIÓN AUTOMÁTICA DE USER-AGENT
         # ------------------------------------------------------------------
         if config.rotate_user_agent and config.user_agent_rotation_interval > 0:
-            interval_ms = config.user_agent_rotation_interval * 60 * 1000
+            self._ua_interval_ms = config.user_agent_rotation_interval * 60 * 1000
             self._ua_timer = QTimer(self)
             self._ua_timer.timeout.connect(self._rotate_user_agent)
-            self._ua_timer.start(interval_ms)
+            self._ua_timer.start(self._ua_interval_ms)
             logger.info(
                 f"Rotación de User-Agent cada {config.user_agent_rotation_interval} minutos"
             )
@@ -619,10 +619,27 @@ class BrowserWindow(QMainWindow):
         ]
 
     def _rotate_user_agent(self) -> None:
-        """Rota el User-Agent del perfil compartido (afecta a todas las pestañas)"""
+        """Rota el User-Agent del perfil compartido (afecta a todas las pestañas)."""
+        if self.tor_manager.tor_enabled:
+            return
         new_ua = random.choice(self.user_agents)
         self.browser_profile.setHttpUserAgent(new_ua)
         logger.debug(f"User-Agent rotado automáticamente: {new_ua[:60]}...")
+
+    def _pause_user_agent_rotation(self) -> None:
+        """Tor encendido: el agente deja de cambiar durante la sesión anónima."""
+        timer = getattr(self, "_ua_timer", None)
+        if timer is not None and timer.isActive():
+            timer.stop()
+            logger.info("Rotación de User-Agent pausada mientras Tor está activo")
+
+    def _resume_user_agent_rotation(self) -> None:
+        """Tor apagado o conexión fallida: vuelve el intervalo configurado."""
+        timer = getattr(self, "_ua_timer", None)
+        if timer is None or timer.isActive() or self.tor_manager.tor_enabled:
+            return
+        timer.start(self._ua_interval_ms)
+        logger.info("Rotación de User-Agent reanudada")
 
     def current_browser(self) -> Optional[BrowserEngine]:
         """Retorna el BrowserEngine de la pestaña activa"""
@@ -1276,6 +1293,7 @@ class BrowserWindow(QMainWindow):
     def toggle_tor(self, checked: bool) -> None:
         """Activa/desactiva Tor. La conexión se realiza en un hilo separado."""
         if checked:
+            self._pause_user_agent_rotation()
             # Estado visual: conectando
             self.tor_toggle.setStyleSheet(
                 "QPushButton:checked{background:#d35400;color:#fff}"
@@ -1301,6 +1319,7 @@ class BrowserWindow(QMainWindow):
                     "QPushButton:!checked{background:#757575;color:#fff}"
                 )
                 self.status_bar.showMessage("Tor desactivado", 3000)
+                self._resume_user_agent_rotation()
                 if self.current_browser():
                     self.current_browser().reload()
 
@@ -1331,6 +1350,7 @@ class BrowserWindow(QMainWindow):
         self.tor_toggle.setText("🔒 Tor: OFF")
         self.tor_toggle.setEnabled(True)
         self.status_bar.showMessage("Error: No se pudo conectar a Tor", 6000)
+        self._resume_user_agent_rotation()
         logger.error("Fallo al conectar a Tor")
 
     def new_tor_identity(self) -> None:
