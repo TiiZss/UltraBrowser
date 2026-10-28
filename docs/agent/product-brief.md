@@ -10,7 +10,7 @@ Una persona en Windows que quiere abrir un icono y navegar como en un navegador 
 
 Carcasa PyQt6 sobre Qt WebEngine (Chromium), unas 2.000 líneas. Hay atrás, adelante, recargar, pestañas, barra de direcciones, búsqueda en DuckDuckGo, pantalla completa, forzado HTTPS, perfil sin escritura de historial en disco, bloqueo de cámara y micrófono, lista fija de dominios en `ad_blocker.py`, un script que falsea WebGL y otras APIs, rotación de User-Agent cada 30 minutos, e interruptor Tor con nueva identidad.
 
-No hay gestor de descargas, buscar en la página, zoom, marcadores, ajustes en ventana, extensiones, contraseñas ni restauración de sesión.
+No hay ajustes en una ventana, ni extensiones, ni contraseñas, ni historial de navegación en disco. Buscar, zoom, descargas de la sesión y reabrir pestaña cerrada están en la rama de usabilidad. Los marcadores van a un fichero de runtime, no al perfil web.
 
 ## Qué no se puede prometer a la vez
 
@@ -40,4 +40,4 @@ El doble clic abre el modo diario, rápido y sin Tor. Tor se enciende solo con e
 
 Eso ya es el arranque actual. `tor_toggle` nace desmarcado y `launch_tor` no se llama al crear la ventana.
 
-El corte de usabilidad de sesión está en `docs/plans/usabilidad-sesion.md`: buscar en la página, zoom, descargas y reabrir la pestaña cerrada en memoria. Marcadores, instalador y actualización del motor siguen pendientes.
+El corte de usabilidad de sesión está en `docs/plans/usabilidad-sesion.md`. Los marcadores locales están en `docs/plans/marcadores.md`. Siguen pendientes el modo Tor sin rotación de User-Agent, el instalador y la actualización del motor.

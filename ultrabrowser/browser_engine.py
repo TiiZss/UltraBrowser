@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QLineEdit,
     QPushButton, QToolBar, QStatusBar, QProgressBar, QApplication,
     QTabWidget, QToolButton, QDockWidget, QListWidget, QListWidgetItem,
-    QLabel, QFileDialog
+    QLabel, QFileDialog, QVBoxLayout
 )
 from PyQt6.QtCore import Qt, QUrl, QThread, pyqtSignal, QTimer, QStandardPaths, QEvent
 from PyQt6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent, QDesktopServices
@@ -32,6 +32,7 @@ from PyQt6.QtNetwork import QNetworkProxy
 
 from .tor_logic import TorManager
 from .ad_blocker import AdBlocker
+from .bookmarks import BookmarkStore, bookmarks_path
 from .logging_config import get_logger
 from .config import get_config, load_user_agents
 from .diagnostics import get_diagnostics_paths
@@ -584,6 +585,7 @@ class BrowserWindow(QMainWindow):
         self._closed_tabs: list[tuple[QUrl, str]] = []
         self._create_find_bar()
         self._create_downloads_dock()
+        self._create_bookmarks_dock()
         self.browser_profile.downloadRequested.connect(self._on_download_requested)
 
         # ------------------------------------------------------------------
@@ -856,6 +858,15 @@ class BrowserWindow(QMainWindow):
         self.reopen_tab_action.triggered.connect(self.reopen_closed_tab)
         view_menu.addAction(self.reopen_tab_action)
 
+        bookmarks_menu = self.menuBar().addMenu("Marcadores")
+        self.add_bookmark_action = QAction("Añadir esta página", self)
+        self.add_bookmark_action.setShortcut(QKeySequence("Ctrl+D"))
+        self.add_bookmark_action.triggered.connect(self._add_current_bookmark)
+        bookmarks_menu.addAction(self.add_bookmark_action)
+        self.show_bookmarks_action = QAction("Mostrar marcadores", self)
+        self.show_bookmarks_action.triggered.connect(self._toggle_bookmarks)
+        bookmarks_menu.addAction(self.show_bookmarks_action)
+
         tools_menu = self.menuBar().addMenu("Herramientas")
         tools_menu.addAction(self.diagnostics_action)
         tools_menu.addAction(self.clear_action)
@@ -913,6 +924,72 @@ class BrowserWindow(QMainWindow):
         self.downloads_dock.setWidget(self.downloads_list)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.downloads_dock)
         self.downloads_dock.hide()
+
+    def _create_bookmarks_dock(self) -> None:
+        """Lista de marcadores leída del fichero de runtime, no del perfil web."""
+        self._bookmark_store = BookmarkStore(bookmarks_path())
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(4, 4, 4, 4)
+        self.bookmarks_list = QListWidget()
+        self.bookmarks_list.itemDoubleClicked.connect(self._open_bookmark)
+        remove_button = QPushButton("Quitar")
+        remove_button.clicked.connect(self._remove_selected_bookmark)
+        layout.addWidget(self.bookmarks_list)
+        layout.addWidget(remove_button)
+        self.bookmarks_dock = QDockWidget("Marcadores", self)
+        self.bookmarks_dock.setWidget(panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.bookmarks_dock)
+        self.bookmarks_dock.hide()
+        self._refresh_bookmarks_list()
+        if self._bookmark_store.unreadable:
+            logger.warning("Marcadores ilegibles. Se conservará una copia .bak al guardar el primero válido.")
+
+    def _refresh_bookmarks_list(self) -> None:
+        self.bookmarks_list.clear()
+        for title, url in self._bookmark_store.items:
+            item = QListWidgetItem(title)
+            item.setToolTip(url)
+            item.setData(Qt.ItemDataRole.UserRole, url)
+            self.bookmarks_list.addItem(item)
+
+    def _toggle_bookmarks(self) -> None:
+        self.bookmarks_dock.setVisible(not self.bookmarks_dock.isVisible())
+
+    def _add_current_bookmark(self) -> None:
+        browser = self.current_browser()
+        if browser is None:
+            return
+        result = self._bookmark_store.add(browser.url().toString(), browser.title())
+        if result == "rejected":
+            self.status_bar.showMessage("Solo se pueden marcar páginas http o https", 3000)
+            return
+        self._refresh_bookmarks_list()
+        self.bookmarks_dock.show()
+        if result == "updated":
+            self.status_bar.showMessage("Marcador actualizado", 2000)
+            logger.info("Marcador actualizado")
+            return
+        self.status_bar.showMessage("Marcador guardado", 2000)
+        logger.info("Marcador guardado")
+
+    def _open_bookmark(self, item: QListWidgetItem) -> None:
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(url, str):
+            return
+        self.add_new_tab(QUrl(url), label=item.text() or "Marcador")
+
+    def _remove_selected_bookmark(self) -> None:
+        item = self.bookmarks_list.currentItem()
+        if item is None:
+            return
+        url = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(url, str):
+            return
+        if self._bookmark_store.remove(url):
+            self._refresh_bookmarks_list()
+            self.status_bar.showMessage("Marcador quitado", 2000)
+            logger.info("Marcador quitado")
 
     def eventFilter(self, watched, event) -> bool:
         if (
