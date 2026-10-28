@@ -8,15 +8,15 @@ Una persona en Windows que quiere abrir un icono y navegar como en un navegador 
 
 ## Qué es hoy
 
-Carcasa PyQt6 sobre Qt WebEngine (Chromium), unas 2.000 líneas. Hay atrás, adelante, recargar, pestañas, barra de direcciones, búsqueda en DuckDuckGo, pantalla completa, forzado HTTPS, perfil sin escritura de historial en disco, bloqueo de cámara y micrófono, lista fija de dominios en `ad_blocker.py`, un script que falsea WebGL y otras APIs, rotación de User-Agent cada 30 minutos, e interruptor Tor con nueva identidad.
+Carcasa PyQt6 sobre Qt WebEngine (Chromium). Hay atrás, adelante, recargar, pestañas, barra de direcciones, búsqueda en DuckDuckGo, pantalla completa, forzado HTTPS, perfil sin historial en disco, bloqueo de cámara y micrófono, lista fija de dominios, un script que falsea WebGL, rotación de User-Agent cada 30 minutos e interruptor Tor. Desde la 0.6.0 también hay búsqueda en la página, zoom por pestaña, descargas de la sesión, reabrir pestaña en memoria y marcadores en el directorio de runtime. Con Tor encendido la rotación del User-Agent se pausa.
 
-No hay ajustes en una ventana, ni extensiones, ni contraseñas, ni historial de navegación en disco. Buscar, zoom, descargas de la sesión y reabrir pestaña cerrada están en la rama de usabilidad. Los marcadores van a un fichero de runtime, no al perfil web.
+No hay ajustes en una ventana, ni extensiones, ni contraseñas, ni historial de navegación en disco.
 
 ## Qué no se puede prometer a la vez
 
 - Ultrarrápido y Tor encendido. El circuito Tor añade saltos. El modo rápido es Chromium directo.
 - Lo más anónimo posible y, a la vez, contraseñas, sincronización, historial y extensiones. Eso es un perfil persistente identificable.
-- La rotación de User-Agent no acerca al anonimato. Un navegador anónimo se parece al resto de usuarios del mismo modo. Cambiar el agente cada 30 minutos hace el cliente más raro. En modo Tor hay que pararla.
+- La rotación de User-Agent no acerca al anonimato. Un navegador anónimo se parece al resto de usuarios del mismo modo. Cambiar el agente cada 30 minutos hace el cliente más raro. Con Tor encendido el temporizador ya se detiene. El agente que había en ese momento sigue siendo el de la sesión diaria.
 - El script de WebGL fijo (`Intel Inc.` / `Intel Iris`) también destaca si casi nadie más lo envía.
 - La seguridad de un navegador estándar es el motor al día. Empaquetar un Qt WebEngine congelado sin canal de actualización envejece el Chromium de dentro.
 
@@ -28,9 +28,9 @@ Fork de Firefox, reescritura en Rust, tienda de extensiones, cuentas, sincroniza
 
 Sobre esta carcasa, en este orden:
 
-1. Descargas visibles, buscar en la página, zoom y reabrir la pestaña cerrada solo en memoria.
-2. Marcadores en un fichero local, separados del perfil de navegación.
-3. En modo Tor: sin rotación de User-Agent y sin arrastrar la sesión del modo diario.
+1. Hecho en 0.6.0: descargas visibles, buscar en la página, zoom y reabrir la pestaña cerrada solo en memoria.
+2. Hecho en 0.6.0: marcadores en un fichero local, separados del perfil de navegación.
+3. Hecho a medias en 0.6.0: con Tor no rota el User-Agent. Sigue pendiente no arrastrar la sesión del modo diario.
 4. Instalador de Windows con icono, cuando esas piezas existan.
 5. Forma de actualizar el motor. Sin eso, el adjetivo «seguro» caduca en la primera CVE de Chromium.
 

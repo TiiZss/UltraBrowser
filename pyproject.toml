@@ -1,6 +1,6 @@
 [project]
 name = "navigator"
-version = "0.5.1"
+version = "0.6.0"
 description = "UltraBrowser: Navegador Privado, Seguro y Ligero con Integración Tor"
 requires-python = ">=3.12"
 dependencies = [

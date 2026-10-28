@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2026-10-28
 
 ### Added
 - **Buscar en la página**: barra con `Ctrl+F`, siguiente, anterior y Escape para cerrar.

@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/TiiZss/UltraBrowser)](https://github.com/TiiZss/UltraBrowser/releases)
 ![Release Date](https://img.shields.io/github/release-date/TiiZss/UltraBrowser)
 ![Downloads](https://img.shields.io/github/downloads/TiiZss/UltraBrowser/total)
-![Version](https://img.shields.io/badge/version-v0.5.1-brightgreen)
+![Version](https://img.shields.io/badge/version-v0.6.0-brightgreen)
 ![UV](https://img.shields.io/badge/uv-fast-purple)
 ![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)
 
@@ -115,7 +115,8 @@ UltraBrowser/
 │   ├── config.py          # Sistema de configuración
 │   ├── diagnostics.py     # Resolución de rutas y utilidades de diagnóstico
 │   ├── exceptions.py      # Excepciones personalizadas
-│   └── logging_config.py  # Sistema de logging
+│   ├── logging_config.py  # Sistema de logging
+│   └── bookmarks.py       # Marcadores en el directorio de runtime
 ├── config/
 │   ├── config.json        # Configuración principal
 │   └── user_agents.json   # Lista de User-Agents para rotación
@@ -138,6 +139,12 @@ UltraBrowser/
 | `Ctrl+L` | Foco en la barra de direcciones |
 | `Ctrl+Shift+Del` | Limpiar todos los datos |
 | `Ctrl+Alt+D` | Abrir carpeta de diagnóstico |
+| `Ctrl+F` | Buscar en la página |
+| `Ctrl++` / `Ctrl+=` | Acercar la pestaña |
+| `Ctrl+-` | Alejar la pestaña |
+| `Ctrl+0` | Zoom al 100% |
+| `Ctrl+Shift+T` | Reabrir la última pestaña cerrada |
+| `Ctrl+D` | Guardar la página en marcadores |
 | `F5` | Recargar página |
 | `Alt+←` | Atrás |
 | `Alt+→` | Adelante |

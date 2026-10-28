@@ -1,8 +1,10 @@
 # Auditoría de Seguridad — UltraBrowser
 
-## Versión: 0.4.0
-## Fecha última revisión: 2026-03-25
-## Estado: ✅ AUDITADO Y MEJORADO
+## Versión auditada: 0.4.0
+## Fecha de esa revisión: 2026-03-25
+## Estado: la revisión escrita cubre 0.4.0
+
+La versión 0.6.0 añade búsqueda, zoom, descargas, marcadores y la pausa de la rotación de User-Agent con Tor. Esas piezas no forman parte de la revisión de abajo. No se ha repetido la auditoría para 0.6.0.
 
 ---
 
