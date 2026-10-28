@@ -49,6 +49,10 @@ UltraBrowser está construido con **Python 3.12+** y **PyQt6**, enfocado en la p
 - **Limpieza Rápida**: Botón para borrar caché, cookies y datos de sesión de todas las pestañas de una sola vez (`Ctrl+Shift+Del`).
 - **Nueva Identidad Tor**: Solicita un nuevo circuito Tor (nueva IP) sin necesidad de desconectar.
 - **Búsqueda Integrada**: Las búsquedas desde la barra de direcciones van a DuckDuckGo automáticamente.
+- **Búsqueda en la página**: `Ctrl+F` abre la barra de búsqueda de la pestaña activa. Escape la cierra.
+- **Zoom de la pestaña**: acercar, alejar y volver al 100% desde el menú `Ver`, o con `Ctrl++`, `Ctrl+-` y `Ctrl+0`. No se guarda entre sesiones.
+- **Descargas**: al descargar un archivo se pregunta dónde guardarlo y el progreso queda en el panel `Descargas` mientras la ventana sigue abierta.
+- **Reabrir pestaña**: `Ctrl+Shift+T` recupera la última pestaña cerrada, hasta 10, solo en memoria.
 - **Herramientas de Diagnóstico**: Carpeta de logs accesible desde el toolbar, el menú `Herramientas` o el atajo `Ctrl+Alt+D`.
 
 ## Instalación y Ejecución

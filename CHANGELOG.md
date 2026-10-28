@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Buscar en la página**: barra con `Ctrl+F`, siguiente, anterior y Escape para cerrar.
+- **Zoom por pestaña**: acercar, alejar y 100% desde el menú `Ver`. No se persiste.
+- **Descargas visibles**: diálogo de guardado y panel de estado de la sesión.
+- **Reabrir pestaña cerrada**: `Ctrl+Shift+T`, como máximo 10 URL, solo en memoria. Limpiar todo vacía esa pila.
+
 ## [0.5.1] - 2026-04-27
 
 ### Fixed
